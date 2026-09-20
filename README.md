@@ -73,10 +73,9 @@ See [`docs/receipts.md`](docs/receipts.md). Never commit real receipt images or 
 
 ## PostgreSQL guide (static explainer)
 
-Diagrams and tables covering PostgreSQL as an RDB (constraints, JSONB-with-normalization, extensions, scaling, migration, connection security, AWS/GCP mapping). Independent of the other tools; the page does not connect to a database.
+Diagrams and tables covering PostgreSQL as an RDB (constraints, JSONB-with-normalization, extensions, scaling, migration, connection security, AWS/GCP mapping). Independent of the other tools; the page does not connect to a database. `postgresql.html` is a single self-contained file (open it in a browser, or serve it):
 
 ```bash
-npm install
 npm run postgresql
 # open http://localhost:1237/postgresql.html
 ```

@@ -2,7 +2,7 @@
 
 AWS や GCP を使うほど、RDB の既定値が PostgreSQL に寄って見える理由を、図と表で整理したメモです。投資判断ではなく機能の地図です。
 
-ブラウザ向けの同じ内容: [`postgresql.html`](../postgresql.html)（`npm run postgresql` → http://localhost:1237/postgresql.html）。
+ブラウザ向けの同じ内容は単体 HTML [`postgresql.html`](../postgresql.html)（CSS/JS 込み。`npm run postgresql` → http://localhost:1237/postgresql.html、またはファイルを直接開く）。
 
 このリポジトリの家計簿・ニュース・レシートツールとは独立した静的解説で、データベースには接続しません。
 

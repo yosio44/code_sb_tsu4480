@@ -94,9 +94,8 @@ A separate **browser tool** that batch-loads receipt images, runs Google Cloud D
 
 A separate **static explainer** (diagrams and tables) of PostgreSQL as an RDB: core strength, JSONB used with generated columns/constraints, extensions, scaling, migration, connection security, and AWS/GCP product mapping.
 
-- Browser entry: `postgresql.html` (run via `npm run postgresql`, port **1237**)
-- Styles/nav: `src/postgresql/postgresqlStyles.css`, `src/postgresql/postgresqlNav.js`
+- Browser entry: standalone `postgresql.html` (inline CSS/JS; run via `npm run postgresql`, port **1237**)
 - Human docs: `docs/postgresql.md`
 - No database connection, no secrets, no investment/ops advice beyond a feature map
 - Keep independent from `src/index3.js`, `src/news/**`, `src/kakeibo/**`, and `src/receipts/**`
-- Deployment: `.github/workflows/deploy-pages.yml` also builds `postgresql.html` into the GitHub Pages site
+- Deployment: `.github/workflows/deploy-pages.yml` copies `postgresql.html` into the GitHub Pages `dist/`

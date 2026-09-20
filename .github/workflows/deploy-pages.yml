@@ -35,9 +35,12 @@ jobs:
       - name: Build static site (Parcel demo + kakeibo + receipts + PostgreSQL guide)
         # All entries are client-side (no backend). Receipt OCR calls Google
         # Document AI from the browser with a short-lived OAuth access token
-        # (memory only). postgresql.html is a static explainer (no DB connection).
+        # (memory only). postgresql.html is a standalone explainer (inline CSS,
+        # no DB connection) copied as-is so Parcel does not rewrite it.
         # The base path matches this repo's GitHub Pages project URL.
-        run: npx parcel build index.html kakeibo.html receipts.html postgresql.html --out-dir dist --public-url /${{ github.event.repository.name }}/
+        run: |
+          npx parcel build index.html kakeibo.html receipts.html --out-dir dist --public-url /${{ github.event.repository.name }}/
+          cp postgresql.html dist/
 
       - uses: actions/configure-pages@v5
 
