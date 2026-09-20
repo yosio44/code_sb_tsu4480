@@ -71,6 +71,18 @@ npm run receipts
 
 See [`docs/receipts.md`](docs/receipts.md). Never commit real receipt images or exported receipt CSVs.
 
+## PostgreSQL guide (static explainer)
+
+Diagrams and tables covering PostgreSQL as an RDB (constraints, JSONB-with-normalization, extensions, scaling, migration, connection security, AWS/GCP mapping). Independent of the other tools; the page does not connect to a database.
+
+```bash
+npm install
+npm run postgresql
+# open http://localhost:1237/postgresql.html
+```
+
+See [`docs/postgresql.md`](docs/postgresql.md) for the Markdown version.
+
 ## Parcel demo (legacy sandbox)
 
 ```bash

@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>PostgreSQL の強み — RDB・拡張・クラウド</title>
+    <link rel="stylesheet" href="src/postgresql/postgresqlStyles.css" />
+  </head>
+  <body>
+    <a class="skip-link" href="#main">本文へ</a>
+    <div class="page">
+      <nav class="toc" aria-label="目次">
+        <h1>PostgreSQL 案内</h1>
+        <p class="toc-kicker">RDBとしての土台 + 拡張 + クラウド</p>
+        <ol>
+          <li><a href="#overview">全体像</a></li>
+          <li><a href="#core">ベースRDBの強さ</a></li>
+          <li><a href="#json">JSONBと正規化</a></li>
+          <li><a href="#extensions">拡張機能</a></li>
+          <li><a href="#scale">スケール</a></li>
+          <li><a href="#migrate">移行</a></li>
+          <li><a href="#security">接続の安全性</a></li>
+          <li><a href="#cloud">AWS / GCP</a></li>
+          <li><a href="#limits">向いていないこと</a></li>
+        </ol>
+      </nav>
+
+      <main id="main" class="content">
+        <header class="hero">
+          <h1>PostgreSQL が RDB の中で突出して見える理由</h1>
+          <p>
+            AWS や GCP を使うほど、「同じ SQL を、マネージドで、拡張付きで、クラウド間でも動かせる」エンジンが
+            PostgreSQL に集約されているのが分かります。ここでは投資判断ではなく、<strong>機能の地図</strong>としてまとめます。
+          </p>
+          <p class="note">
+            このページは静的な解説です。データベースには接続しません。クラウド製品の細部はバージョンで変わるので、本番採用前に各社のドキュメントを確認してください。
+          </p>
+        </header>
+
+        <section class="panel" id="overview">
+          <h2>1. 全体像 — 「RDBコア × 拡張 × クラウド実装」</h2>
+          <p class="lede">
+            MySQL が「Web向けの速いエンジン」、Oracle が「巨大な製品スイート」だとすると、PostgreSQL は
+            <strong>標準SQLのRDBを核に、型・索引・拡張で領域を足せるプラットフォーム</strong>です。クラウド各社は互換レイヤを自前で抱えつつ、プロトコルと SQL は PostgreSQL に寄せています。
+          </p>
+
+          <figure class="figure" aria-label="PostgreSQLの層構造">
+            <svg viewBox="0 0 920 390" role="img" aria-labelledby="arch-title arch-desc">
+              <title id="arch-title">PostgreSQL の層構造</title>
+              <desc id="arch-desc">
+                アプリとバッチが接続プールを通り、TLS で PostgreSQL コアに入り、型・索引・拡張がストレージと WAL の上に載る図
+              </desc>
+              <rect x="20" y="18" width="180" height="52" rx="8" fill="#1b3a4b" />
+              <text x="110" y="49" text-anchor="middle" fill="#f4fbfa" font-size="15">アプリ / API</text>
+              <rect x="220" y="18" width="180" height="52" rx="8" fill="#1b3a4b" />
+              <text x="310" y="49" text-anchor="middle" fill="#f4fbfa" font-size="15">バッチ / ETL</text>
+              <rect x="420" y="18" width="180" height="52" rx="8" fill="#1b3a4b" />
+              <text x="510" y="49" text-anchor="middle" fill="#f4fbfa" font-size="15">分析・BI</text>
+              <rect x="620" y="18" width="280" height="52" rx="8" fill="#1b3a4b" />
+              <text x="760" y="49" text-anchor="middle" fill="#f4fbfa" font-size="15">他DB (FDW で外部表)</text>
+
+              <path d="M110 70 v28" stroke="#5b6b7c" stroke-width="2" marker-end="url(#arrow)" />
+              <path d="M310 70 v28" stroke="#5b6b7c" stroke-width="2" />
+              <path d="M510 70 v28" stroke="#5b6b7c" stroke-width="2" />
+              <path d="M760 70 v28" stroke="#5b6b7c" stroke-width="2" />
+
+              <rect x="20" y="98" width="880" height="50" rx="8" fill="#1f7a72" />
+              <text x="460" y="128" text-anchor="middle" fill="#fff" font-size="16">
+                接続の入口 — PgBouncer / RDS Proxy / Cloud SQL Auth Proxy ・ TLS ・ SCRAM または IAM
+              </text>
+
+              <path d="M460 148 v22" stroke="#5b6b7c" stroke-width="2" />
+
+              <rect x="20" y="170" width="880" height="118" rx="10" fill="#e8f4f2" stroke="#1f7a72" />
+              <text x="36" y="196" fill="#1b3a4b" font-size="16" font-weight="700">PostgreSQL コア（オープンな RDB）</text>
+              <rect x="36" y="214" width="200" height="54" rx="7" fill="#fff" stroke="#9bb8b4" />
+              <text x="136" y="236" text-anchor="middle" fill="#1b3a4b" font-size="13">SQL / MVCC / WAL</text>
+              <text x="136" y="254" text-anchor="middle" fill="#5b6b7c" font-size="11">読み取りは書き込みを止めない</text>
+              <rect x="252" y="214" width="200" height="54" rx="7" fill="#fff" stroke="#9bb8b4" />
+              <text x="352" y="236" text-anchor="middle" fill="#1b3a4b" font-size="13">制約・権限・RLS</text>
+              <text x="352" y="254" text-anchor="middle" fill="#5b6b7c" font-size="11">行・列・ロールで閉じる</text>
+              <rect x="468" y="214" width="200" height="54" rx="7" fill="#fff" stroke="#9bb8b4" />
+              <text x="568" y="236" text-anchor="middle" fill="#1b3a4b" font-size="13">多様な索引</text>
+              <text x="568" y="254" text-anchor="middle" fill="#5b6b7c" font-size="11">B-Tree / GIN / GiST / BRIN</text>
+              <rect x="684" y="214" width="196" height="54" rx="7" fill="#fff" stroke="#9bb8b4" />
+              <text x="782" y="236" text-anchor="middle" fill="#1b3a4b" font-size="13">拡張 API</text>
+              <text x="782" y="254" text-anchor="middle" fill="#5b6b7c" font-size="11">型・演算子・FDW を足せる</text>
+
+              <path d="M460 288 v20" stroke="#5b6b7c" stroke-width="2" />
+
+              <rect x="20" y="308" width="430" height="58" rx="8" fill="#123047" />
+              <text x="235" y="334" text-anchor="middle" fill="#f4fbfa" font-size="14">ローカル / EBS 相当のディスク</text>
+              <text x="235" y="352" text-anchor="middle" fill="#9cc4c0" font-size="12">自分で容量とバックアップを設計</text>
+              <rect x="470" y="308" width="430" height="58" rx="8" fill="#123047" />
+              <text x="685" y="334" text-anchor="middle" fill="#f4fbfa" font-size="14">Aurora / AlloyDB の共有ストレージ</text>
+              <text x="685" y="352" text-anchor="middle" fill="#9cc4c0" font-size="12">容量自動拡張・フェイルオーバーが製品側</text>
+              <defs>
+                <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto">
+                  <path d="M0,0 L8,4 L0,8 z" fill="#5b6b7c" />
+                </marker>
+              </defs>
+            </svg>
+            <figcaption class="caption">
+              図1. 使う人から見ると「SQL の RDB」だが、強さの本体はコア（MVCC・制約・索引）と、壊さずに足せる拡張、クラウドが肩代わりする接続とストレージ。
+            </figcaption>
+          </figure>
+
+          <table>
+            <caption class="caption">表1. クラウドを使うほど PostgreSQL が「既定の RDB」になる理由</caption>
+            <thead>
+              <tr>
+                <th>気づき</th>
+                <th>意味</th>
+                <th>他エンジンとの差</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>マネージドの第一選択肢が PG</td>
+                <td>RDS、Aurora PostgreSQL、Cloud SQL、AlloyDB が同じ方言に寄る</td>
+                <td>Oracle はライセンス、MySQL はフォーク差（Aurora MySQL 等）が大きい</td>
+              </tr>
+              <tr>
+                <td>拡張が「製品機能」になる</td>
+                <td>PostGIS / pgvector / pgaudit をチェックボックスで有効化</td>
+                <td>GIS・ベクトル・監査を別製品に分けなくて済むことが多い</td>
+              </tr>
+              <tr>
+                <td>接続がプロキシ前提</td>
+                <td>IAM + Auth Proxy / RDS Proxy が標準パターン</td>
+                <td>パスワードをアプリに焼かない運用が作りやすい</td>
+              </tr>
+              <tr>
+                <td>論理レプリケーションが標準装備</td>
+                <td>メジャーバージョン越えやクラウド間のオンライン移行に使える</td>
+                <td>ダンプだけに頼らず、切り返し計画が立てやすい</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section class="panel" id="core">
+          <h2>2. ベース RDB としての強さ</h2>
+          <p class="lede">
+            拡張の話の前に、素の PostgreSQL がすでに「厳しい RDB」です。トランザクション、制約、SQL、索引の四つが揃っていることが、JSON や GIS を足しても破綻しない理由です。
+          </p>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>トランザクションと同時実行</h3>
+              <p>
+                MVCC なので、長い SELECT が INSERT/UPDATE を止めません。DDL もトランザクションに載せられ、失敗したらロールバックできます（多くの MySQL DDL は非トランザクション）。セーブポイント、直列化可能な分離レベル、制約の遅延チェックが使えます。
+              </p>
+            </div>
+            <div class="card">
+              <h3>制約が「データモデル」になる</h3>
+              <p>
+                PK / FK / UNIQUE / NOT NULL / CHECK に加え、<strong>EXCLUDE</strong>（期間の重なり禁止など）があります。部分 UNIQUE（WHERE 付きのユニーク索引）で「有効行だけ一意」も表現できます。JSON を置いても、生成列経由で同じ制約を掛けられます。
+              </p>
+            </div>
+          </div>
+
+          <h3>SQL と索引 — コアだけで足りる範囲が広い</h3>
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表2. 素の PostgreSQL で使える（拡張なし）もの</caption>
+              <thead>
+                <tr>
+                  <th>領域</th>
+                  <th>できること</th>
+                  <th>効く場面</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>SQL</td>
+                  <td>CTE、再帰 CTE、WINDOW、LATERAL、DISTINCT ON、MERGE（15+）、生成列、IDENTITY</td>
+                  <td>アプリ側でループしなくてよい集計・差分更新</td>
+                </tr>
+                <tr>
+                  <td>型</td>
+                  <td>数値・日時・UUID・配列・レンジ・ENUM・JSONB・全文検索 tsvector</td>
+                  <td>「別テーブルにするほどではないが型は欲しい」列</td>
+                </tr>
+                <tr>
+                  <td>索引</td>
+                  <td>B-Tree、Hash、GiST、SP-GiST、GIN、BRIN。部分索引・式索引・INCLUDE</td>
+                  <td>JSON 内キー、GIS、巨大時系列の間引き、カバリング</td>
+                </tr>
+                <tr>
+                  <td>同時実行以外</td>
+                  <td>LISTEN/NOTIFY、一時表、パーティション、パラレルクエリ</td>
+                  <td>キャッシュ無効化、月次分割、分析寄りの SQL</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表3. 一般的な RDB との肌感（ワークロード次第。製品の優劣宣言ではない）</caption>
+              <thead>
+                <tr>
+                  <th>観点</th>
+                  <th>PostgreSQL</th>
+                  <th>MySQL / MariaDB</th>
+                  <th>Oracle</th>
+                  <th>SQL Server</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>標準 SQL の厚さ</td>
+                  <td><span class="badge strong">強い</span> CTE / WINDOW / 制約が自然</td>
+                  <td><span class="badge mid">普通</span> 近年追いつくが方言が残る</td>
+                  <td><span class="badge strong">強い</span> ただし製品ロックインが大きい</td>
+                  <td><span class="badge strong">強い</span> T-SQL 中心</td>
+                </tr>
+                <tr>
+                  <td>型と索引の多様性</td>
+                  <td><span class="badge strong">強い</span> JSONB + GIN が本家品質</td>
+                  <td><span class="badge mid">普通</span> JSON はあるが使い方が限定的</td>
+                  <td><span class="badge strong">強い</span> オプション課金になりやすい</td>
+                  <td><span class="badge mid">普通</span> JSON / 空間は後付け感</td>
+                </tr>
+                <tr>
+                  <td>拡張で領域を足す</td>
+                  <td><span class="badge strong">強い</span> CREATE EXTENSION</td>
+                  <td><span class="badge weak">弱い</span> プラグイン文化が薄い</td>
+                  <td><span class="badge mid">普通</span> オプション製品の束</td>
+                  <td><span class="badge mid">普通</span> CLR 等はあるが別物</td>
+                </tr>
+                <tr>
+                  <td>クラウド間の持ち出し</td>
+                  <td><span class="badge strong">強い</span> 各社が互換エンジンを出す</td>
+                  <td><span class="badge mid">普通</span> フォーク差に注意</td>
+                  <td><span class="badge weak">弱い</span> ライセンスと機能差</td>
+                  <td><span class="badge mid">普通</span> Azure に寄る</td>
+                </tr>
+                <tr>
+                  <td>書き込みの水平分割</td>
+                  <td><span class="badge mid">普通</span> 単一プライマリが基本</td>
+                  <td><span class="badge mid">普通</span> 同様に単一プライマリ</td>
+                  <td><span class="badge mid">普通</span> RAC 等は別スキル</td>
+                  <td><span class="badge mid">普通</span> Always On は可用性寄り</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="footer-note">
+            Spanner や CockroachDB は「グローバル書き込み」では勝つことがあります。それらは PostgreSQL 互換をうたっていても、制約・拡張・トランザクションの意味がずれるので、別種として扱うのが安全です。
+          </p>
+        </section>
+
+        <section class="panel" id="json">
+          <h2>3. JSON 型でありながら、正規化して扱える</h2>
+          <p class="lede">
+            ここが「ドキュメント DB を別建てしなくてよい」最大の理由です。JSONB は schemaless に見えて、生成列・制約・外部キー・GIN で<strong>関係モデルに接続</strong>できます。最初はゆるく置き、ホットなキーだけ列に昇格する、という段階設計が SQL のままできます。
+          </p>
+
+          <figure class="figure" aria-label="JSONBを正規化列へ接続する図">
+            <svg viewBox="0 0 920 340" role="img" aria-labelledby="json-title json-desc">
+              <title id="json-title">JSONB と生成列</title>
+              <desc id="json-desc">
+                1つの JSONB ペイロードから customer_id・status・amount を生成列として取り出し、customers 表へ外部キー、CHECK、索引を張る
+              </desc>
+              <rect x="24" y="24" width="300" height="292" rx="10" fill="#123047" />
+              <text x="174" y="52" text-anchor="middle" fill="#f4fbfa" font-size="15" font-weight="700">orders.payload JSONB</text>
+              <text x="44" y="86" fill="#9cc4c0" font-size="12" font-family="ui-monospace, monospace">{"customer_id":"…",</text>
+              <text x="44" y="108" fill="#9cc4c0" font-size="12" font-family="ui-monospace, monospace"> "status":"paid",</text>
+              <text x="44" y="130" fill="#9cc4c0" font-size="12" font-family="ui-monospace, monospace"> "amount": 4200,</text>
+              <text x="44" y="152" fill="#9cc4c0" font-size="12" font-family="ui-monospace, monospace"> "items":[...],</text>
+              <text x="44" y="174" fill="#9cc4c0" font-size="12" font-family="ui-monospace, monospace"> "utm": {"src":"ads"}}</text>
+              <rect x="44" y="200" width="260" height="92" rx="8" fill="#1f7a72" />
+              <text x="174" y="232" text-anchor="middle" fill="#fff" font-size="13">GIN (payload jsonb_path_ops)</text>
+              <text x="174" y="254" text-anchor="middle" fill="#e8f4f2" font-size="12">残りの入れ子は包含検索</text>
+              <text x="174" y="274" text-anchor="middle" fill="#e8f4f2" font-size="12">@&gt; や JSONPath で拾う</text>
+
+              <path d="M324 90 H 390" stroke="#1f7a72" stroke-width="3" />
+              <path d="M324 150 H 390" stroke="#1f7a72" stroke-width="3" />
+              <path d="M324 210 H 390" stroke="#1f7a72" stroke-width="3" />
+              <text x="357" y="78" text-anchor="middle" fill="#1f7a72" font-size="11">生成列</text>
+
+              <rect x="390" y="54" width="230" height="72" rx="8" fill="#fff" stroke="#1f7a72" stroke-width="2" />
+              <text x="505" y="84" text-anchor="middle" fill="#1b3a4b" font-size="14">customer_id uuid</text>
+              <text x="505" y="106" text-anchor="middle" fill="#5b6b7c" font-size="12">GENERATED … STORED</text>
+              <rect x="390" y="140" width="230" height="56" rx="8" fill="#fff" stroke="#1f7a72" stroke-width="2" />
+              <text x="505" y="174" text-anchor="middle" fill="#1b3a4b" font-size="14">status text + CHECK</text>
+              <rect x="390" y="210" width="230" height="56" rx="8" fill="#fff" stroke="#1f7a72" stroke-width="2" />
+              <text x="505" y="244" text-anchor="middle" fill="#1b3a4b" font-size="14">amount int + INDEX</text>
+
+              <path d="M620 90 H 686" stroke="#1b3a4b" stroke-width="2" />
+              <rect x="686" y="40" width="210" height="100" rx="8" fill="#e8f4f2" stroke="#1b3a4b" />
+              <text x="791" y="78" text-anchor="middle" fill="#1b3a4b" font-size="14" font-weight="700">customers</text>
+              <text x="791" y="102" text-anchor="middle" fill="#445566" font-size="12">FOREIGN KEY が張れる</text>
+              <text x="791" y="122" text-anchor="middle" fill="#445566" font-size="12">= 正規化した参照整合性</text>
+
+              <rect x="686" y="168" width="210" height="120" rx="8" fill="#fff8e8" stroke="#d97706" />
+              <text x="791" y="200" text-anchor="middle" fill="#8a5a00" font-size="13" font-weight="700">まだ列にしないもの</text>
+              <text x="791" y="224" text-anchor="middle" fill="#6b5420" font-size="12">items の入れ子</text>
+              <text x="791" y="244" text-anchor="middle" fill="#6b5420" font-size="12">utm など変動キー</text>
+              <text x="791" y="264" text-anchor="middle" fill="#6b5420" font-size="12">スキーマが固まったら昇格</text>
+            </svg>
+            <figcaption class="caption">
+              図2. JSONB を「捨て場所」にせず、よく使うキーだけ型付き列にする。外部キーと CHECK は列側、残りは GIN。これが正規化との同居。
+            </figcaption>
+          </figure>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表4. json / jsonb / 普通の列の使い分け</caption>
+              <thead>
+                <tr>
+                  <th></th>
+                  <th>json</th>
+                  <th>jsonb</th>
+                  <th>関係列（正規化）</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>保存</td>
+                  <td>入力テキストをほぼそのまま</td>
+                  <td>分解したバイナリ。キー順は正規化される</td>
+                  <td>型どおり。NULL と制約が明確</td>
+                </tr>
+                <tr>
+                  <td>検索・索引</td>
+                  <td>ほぼ向かない</td>
+                  <td>GIN、JSONPath、包含 <code>@&gt;</code></td>
+                  <td>B-Tree が最速で計画も読みやすい</td>
+                </tr>
+                <tr>
+                  <td>制約</td>
+                  <td>CHECK で jsonb 関数を書く程度</td>
+                  <td>生成列経由が本命</td>
+                  <td>FK / UNIQUE / CHECK がそのまま</td>
+                </tr>
+                <tr>
+                  <td>向くデータ</td>
+                  <td>監査で原文が欲しいとき</td>
+                  <td>キーが変動する属性、イベント、外部 API の余り</td>
+                  <td>結合・集計・金額・ステータスなど契約になった項目</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <pre><code>-- ペイロードは残し、関係として扱うキーだけ型を付ける
+CREATE TABLE orders (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  payload jsonb NOT NULL,
+  customer_id uuid GENERATED ALWAYS AS ((payload-&gt;&gt;'customer_id')::uuid) STORED,
+  status text GENERATED ALWAYS AS (payload-&gt;&gt;'status') STORED,
+  amount integer GENERATED ALWAYS AS ((payload-&gt;&gt;'amount')::integer) STORED,
+  CONSTRAINT orders_status_chk CHECK (status IN ('draft', 'paid', 'void')),
+  CONSTRAINT orders_amount_chk CHECK (amount &gt;= 0),
+  CONSTRAINT orders_customer_fk FOREIGN KEY (customer_id) REFERENCES customers (id)
+);
+CREATE INDEX orders_payload_gin ON orders USING gin (payload jsonb_path_ops);
+CREATE INDEX orders_customer_idx ON orders (customer_id);</code></pre>
+          <p class="callout">
+            運用のコツ: JSONB のキーをアプリが勝手に増やし続けると、生成列が追い付きません。「列にする条件」（検索する、結合する、金額として集計する）を先に決めると、ドキュメント DB 化を防げます。
+          </p>
+        </section>
+
+        <section class="panel" id="extensions">
+          <h2>4. 拡張機能 — 別製品を増やさずに領域を足す</h2>
+          <p class="lede">
+            <code>CREATE EXTENSION</code> が、クラウドで「チェックを入れる」操作になるのが大きいです。GIS・あいまい検索・監査・ベクトル検索を、同じトランザクションとバックアップ境界の中に置けます。
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表5. よく使う拡張と、マネージドでの位置づけ（目安）</caption>
+              <thead>
+                <tr>
+                  <th>拡張</th>
+                  <th>何ができるようになるか</th>
+                  <th>RDS / Aurora PG</th>
+                  <th>Cloud SQL / AlloyDB</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>PostGIS</td>
+                  <td>幾何型、空間索引、距離・包含。地図と業務テーブルを同じ SQL で</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>pgvector</td>
+                  <td>埋め込みベクトルの近傍検索。RDB の横で RAG 用インデックス</td>
+                  <td><span class="badge strong">比較的新しい版で可</span></td>
+                  <td><span class="badge strong">利用可（AlloyDB は強化）</span></td>
+                </tr>
+                <tr>
+                  <td>pgcrypto</td>
+                  <td>ハッシュ、pgp、gen_random_uuid。列単位の暗号化補助</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>pg_trgm</td>
+                  <td>トライグラム。LIKE '%foo%' や類似度を索引付きで</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>postgres_fdw</td>
+                  <td>別 PostgreSQL を外部表に。段階移行や参照分割</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>pgaudit</td>
+                  <td>誰が何を読んだかの監査ログ。コンプライアンス</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>pg_stat_statements</td>
+                  <td>遅い SQL の集計。チューニングの起点</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>ltree / hstore / citext</td>
+                  <td>木構造、古い K/V、大小無視テキスト</td>
+                  <td><span class="badge strong">利用可</span></td>
+                  <td><span class="badge strong">利用可</span></td>
+                </tr>
+                <tr>
+                  <td>TimescaleDB / Citus</td>
+                  <td>時系列圧縮、分散シャード</td>
+                  <td><span class="badge weak">原則なし</span></td>
+                  <td><span class="badge weak">原則なし</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="callout warn">
+            マネージドでは superuser 拡張や独自共有ライブラリはほぼ入れられません。Timescale / Citus が必要なら、その製品（または Azure の Citus 系）を選ぶか、自前運用です。拡張の有無は「クラウド間移行の最大のつまずき」でもあります。
+          </p>
+        </section>
+
+        <section class="panel" id="scale">
+          <h2>5. スケールの容易性 — 楽な段と、急に難しくなる段</h2>
+          <p class="lede">
+            PostgreSQL のスケールは「読み取りと容量はクラウドがかなり楽、書き込みの水平分割は今でも難しい」が正直な地図です。AWS/GCP を使うほど、この段差が製品機能として見えます。
+          </p>
+
+          <figure class="figure" aria-label="スケールの段階">
+            <svg viewBox="0 0 920 250" role="img" aria-labelledby="scale-title scale-desc">
+              <title id="scale-title">スケールの段階</title>
+              <desc id="scale-desc">左が容易、右が困難。垂直スケールから書き込みシャーディングまでの6段階</desc>
+              <rect x="16" y="40" width="140" height="130" rx="8" fill="#d9f6e8" stroke="#146b3a" />
+              <text x="86" y="78" text-anchor="middle" fill="#146b3a" font-size="14" font-weight="700">1. 垂直</text>
+              <text x="86" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">インスタンス</text>
+              <text x="86" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">クラス変更</text>
+              <text x="86" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">一番簡単</text>
+
+              <rect x="168" y="40" width="140" height="130" rx="8" fill="#d9f6e8" stroke="#146b3a" />
+              <text x="238" y="78" text-anchor="middle" fill="#146b3a" font-size="14" font-weight="700">2. 接続</text>
+              <text x="238" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">PgBouncer</text>
+              <text x="238" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">RDS Proxy 等</text>
+              <text x="238" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">必須に近い</text>
+
+              <rect x="320" y="40" width="140" height="130" rx="8" fill="#e8f4f2" stroke="#1f7a72" />
+              <text x="390" y="78" text-anchor="middle" fill="#1f7a72" font-size="14" font-weight="700">3. 容量</text>
+              <text x="390" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">Aurora / AlloyDB</text>
+              <text x="390" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">自動拡張</text>
+              <text x="390" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">製品任せ</text>
+
+              <rect x="472" y="40" width="140" height="130" rx="8" fill="#fff3d6" stroke="#8a5a00" />
+              <text x="542" y="78" text-anchor="middle" fill="#8a5a00" font-size="14" font-weight="700">4. 読み取り</text>
+              <text x="542" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">リードレプリカ</text>
+              <text x="542" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">レプリカ遅延</text>
+              <text x="542" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">アプリ設計が要る</text>
+
+              <rect x="624" y="40" width="140" height="130" rx="8" fill="#fff3d6" stroke="#8a5a00" />
+              <text x="694" y="78" text-anchor="middle" fill="#8a5a00" font-size="14" font-weight="700">5. 表分割</text>
+              <text x="694" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">パーティション</text>
+              <text x="694" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">古い月を切り離す</text>
+              <text x="694" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">設計は自分</text>
+
+              <rect x="776" y="40" width="128" height="130" rx="8" fill="#fde2e2" stroke="#9b1c1c" />
+              <text x="840" y="78" text-anchor="middle" fill="#9b1c1c" font-size="14" font-weight="700">6. 書き込み</text>
+              <text x="840" y="104" text-anchor="middle" fill="#1b3a4b" font-size="12">Citus / 自前</text>
+              <text x="840" y="124" text-anchor="middle" fill="#1b3a4b" font-size="12">シャーディング</text>
+              <text x="840" y="150" text-anchor="middle" fill="#5b6b7c" font-size="11">別アーキテクチャ</text>
+
+              <text x="460" y="210" text-anchor="middle" fill="#5b6b7c" font-size="13">左へ行くほどマネージドが肩代わり / 右へ行くほどエンジンの外の仕事</text>
+              <text x="460" y="232" text-anchor="middle" fill="#5b6b7c" font-size="13">プロセスモデルなので「接続数＝メモリ」——スケールの前にプールが効く</text>
+            </svg>
+            <figcaption class="caption">図3. 容易性の段。多くのサービスは 1〜4 で足り、5 で寿命を延ばす。6 に入った瞬間「ただの PostgreSQL」ではなくなる。</figcaption>
+          </figure>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表6. スケール手段の比較</caption>
+              <thead>
+                <tr>
+                  <th>手段</th>
+                  <th>何を伸ばすか</th>
+                  <th>容易性</th>
+                  <th>落とし穴</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>インスタンス大型化</td>
+                  <td>CPU / メモリ / 単発クエリ</td>
+                  <td><span class="badge strong">容易</span></td>
+                  <td>上限がある。メンテウィンドウ</td>
+                </tr>
+                <tr>
+                  <td>接続プール</td>
+                  <td>同時接続、フェイルオーバー時の嵐</td>
+                  <td><span class="badge strong">容易</span></td>
+                  <td>セッション機能（一時表、LISTEN）との相性</td>
+                </tr>
+                <tr>
+                  <td>Aurora / AlloyDB ストレージ</td>
+                  <td>容量、I/O、フェイルオーバー</td>
+                  <td><span class="badge strong">容易</span></td>
+                  <td>エンジン固有機能は持ち出しにくい</td>
+                </tr>
+                <tr>
+                  <td>リードレプリカ</td>
+                  <td>参照 QPS</td>
+                  <td><span class="badge mid">普通</span></td>
+                  <td>遅延、書き込みはプライマリ集中</td>
+                </tr>
+                <tr>
+                  <td>宣言的パーティション</td>
+                  <td>巨大表のメンテと局所 I/O</td>
+                  <td><span class="badge mid">普通</span></td>
+                  <td>キー設計を間違えると全部スキャン</td>
+                </tr>
+                <tr>
+                  <td>論理レプリカで分析へ</td>
+                  <td>OLTP と OLAP の分離</td>
+                  <td><span class="badge mid">普通</span></td>
+                  <td>DDL、シーケンス、巨大トランザクション</td>
+                </tr>
+                <tr>
+                  <td>Citus / Limitless / アプリシャード</td>
+                  <td>書き込みスループット</td>
+                  <td><span class="badge weak">難しい</span></td>
+                  <td>クロスシャード結合、運用、ベンダー固定</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel" id="migrate">
+          <h2>6. 移行の容易性 — 「同じエンジン」をクラウドが量産している</h2>
+          <p class="lede">
+            PostgreSQL が強いのは機能表だけでなく、<strong>持ち出せること</strong>です。ワイヤプロトコルと <code>pg_dump</code> がオープンで、AWS も GCP も「PostgreSQL 互換」を商品にしているので、移行の道具が流用できます。
+          </p>
+
+          <figure class="figure" aria-label="移行パス">
+            <svg viewBox="0 0 920 300" role="img" aria-labelledby="mig-title mig-desc">
+              <title id="mig-title">移行パス</title>
+              <desc id="mig-desc">オンプレ PostgreSQL、MySQL、Oracle からクラウド PostgreSQL へ、さらにクラウド間へ移る経路</desc>
+              <rect x="20" y="24" width="200" height="70" rx="8" fill="#123047" />
+              <text x="120" y="54" text-anchor="middle" fill="#f4fbfa" font-size="14">オンプレ PostgreSQL</text>
+              <text x="120" y="74" text-anchor="middle" fill="#9cc4c0" font-size="12">同じエンジン</text>
+              <rect x="20" y="114" width="200" height="70" rx="8" fill="#445566" />
+              <text x="120" y="144" text-anchor="middle" fill="#f4fbfa" font-size="14">MySQL / MariaDB</text>
+              <text x="120" y="164" text-anchor="middle" fill="#d0d7de" font-size="12">型と SQL の変換が要る</text>
+              <rect x="20" y="204" width="200" height="70" rx="8" fill="#445566" />
+              <text x="120" y="234" text-anchor="middle" fill="#f4fbfa" font-size="14">Oracle / SQL Server</text>
+              <text x="120" y="254" text-anchor="middle" fill="#d0d7de" font-size="12">方言とパッケージが本体</text>
+
+              <text x="320" y="64" text-anchor="middle" fill="#1f7a72" font-size="12">論理レプリ / dump</text>
+              <text x="320" y="154" text-anchor="middle" fill="#8a5a00" font-size="12">DMS / pgloader</text>
+              <text x="320" y="244" text-anchor="middle" fill="#9b1c1c" font-size="12">ora2pg / SCT</text>
+              <path d="M220 59 H 420" stroke="#1f7a72" stroke-width="2" />
+              <path d="M220 149 H 420" stroke="#d97706" stroke-width="2" />
+              <path d="M220 239 H 420" stroke="#9b1c1c" stroke-width="2" />
+
+              <rect x="420" y="90" width="220" height="120" rx="10" fill="#1f7a72" />
+              <text x="530" y="138" text-anchor="middle" fill="#fff" font-size="15" font-weight="700">クラウド上の PG</text>
+              <text x="530" y="162" text-anchor="middle" fill="#e8f4f2" font-size="12">RDS / Aurora PG</text>
+              <text x="530" y="182" text-anchor="middle" fill="#e8f4f2" font-size="12">Cloud SQL / AlloyDB</text>
+
+              <path d="M640 150 H 700" stroke="#1b3a4b" stroke-width="2" />
+              <rect x="700" y="78" width="200" height="70" rx="8" fill="#e8f4f2" stroke="#1b3a4b" />
+              <text x="800" y="108" text-anchor="middle" fill="#1b3a4b" font-size="13">別クラウドの PG</text>
+              <text x="800" y="128" text-anchor="middle" fill="#5b6b7c" font-size="12">論理レプリでオンライン</text>
+              <rect x="700" y="162" width="200" height="70" rx="8" fill="#fff8e8" stroke="#d97706" />
+              <text x="800" y="192" text-anchor="middle" fill="#8a5a00" font-size="13">倉庫（BQ / Redshift）</text>
+              <text x="800" y="212" text-anchor="middle" fill="#6b5420" font-size="12">OLTP の置き換えではない</text>
+            </svg>
+            <figcaption class="caption">図4. PG→PG は道具が揃う。他エンジンからは変換コストが本体。クラウド間も「拡張と照合順序」さえ外せば同じ仲間。</figcaption>
+          </figure>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表7. 移行手段</caption>
+              <thead>
+                <tr>
+                  <th>手段</th>
+                  <th>停止時間</th>
+                  <th>向くケース</th>
+                  <th>注意</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>pg_dump / restore</td>
+                  <td>サイズに比例して長い</td>
+                  <td>小さい DB、スキーマ検証、開発コピー</td>
+                  <td>権限・拡張・照合順序を先に合わせる</td>
+                </tr>
+                <tr>
+                  <td>物理バックアップ（pg_basebackup 等）</td>
+                  <td>短いがメンテは必要</td>
+                  <td>同一メジャー、近い環境</td>
+                  <td>マネージドでは使えないことが多い</td>
+                </tr>
+                <tr>
+                  <td>論理レプリケーション（pub/sub）</td>
+                  <td>切り替えを秒〜分にできる</td>
+                  <td>PG→PG のオンライン移行、バージョン上げ</td>
+                  <td>DDL、シーケンス、大きな LOB、スロット肥大</td>
+                </tr>
+                <tr>
+                  <td>AWS DMS / GCP DMS</td>
+                  <td>設計次第</td>
+                  <td>他エンジンから、または運用を委託</td>
+                  <td>型マッピング、トリガ、無停止の幻想に注意</td>
+                </tr>
+                <tr>
+                  <td>postgres_fdw で段階移行</td>
+                  <td>表単位</td>
+                  <td>サービスを分割しながら移す</td>
+                  <td>結合の性能、分散トランザクションは期待しない</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="callout">
+            移行が「容易」な条件: 拡張が先方にある、ICU 照合を揃える、superuser 前提の処理を捨てる、Aurora/AlloyDB 固有機能に依存しない。逆に、ストアドで業務を固めた Oracle からの移行は SQL 以前に業務の移植です。
+          </p>
+        </section>
+
+        <section class="panel" id="security">
+          <h2>7. 接続の安全性 — パスワードをアプリから追い出すまで</h2>
+          <p class="lede">
+            PostgreSQL 自体の認証（SCRAM、クライアント証明書、ロール）と、クラウドの IAM・プロキシ・プライベートネットが重なると、「接続文字列に長期秘密を書かない」形が現実的になります。さらに RLS で行まで閉じられます。
+          </p>
+
+          <figure class="figure" aria-label="接続の安全層">
+            <svg viewBox="0 0 920 220" role="img" aria-labelledby="sec-title sec-desc">
+              <title id="sec-title">接続の安全層</title>
+              <desc id="sec-desc">公開網を閉じ、VPC 内のアプリが IAM プロキシ経由で TLS 接続し、ロール・GRANT・RLS で認可する</desc>
+              <rect x="16" y="36" width="120" height="140" rx="8" fill="#fde2e2" stroke="#9b1c1c" />
+              <text x="76" y="90" text-anchor="middle" fill="#9b1c1c" font-size="14" font-weight="700">インターネット</text>
+              <text x="76" y="114" text-anchor="middle" fill="#1b3a4b" font-size="12">公開 5432</text>
+              <text x="76" y="134" text-anchor="middle" fill="#1b3a4b" font-size="12">は使わない</text>
+
+              <rect x="156" y="36" width="170" height="140" rx="8" fill="#e8f4f2" stroke="#1f7a72" />
+              <text x="241" y="80" text-anchor="middle" fill="#1f7a72" font-size="14" font-weight="700">VPC / VPC SC</text>
+              <text x="241" y="108" text-anchor="middle" fill="#1b3a4b" font-size="12">Private IP</text>
+              <text x="241" y="128" text-anchor="middle" fill="#1b3a4b" font-size="12">PSC / PrivateLink</text>
+              <text x="241" y="148" text-anchor="middle" fill="#1b3a4b" font-size="12">SG / ファイアウォール</text>
+
+              <rect x="346" y="36" width="190" height="140" rx="8" fill="#123047" />
+              <text x="441" y="80" text-anchor="middle" fill="#f4fbfa" font-size="14" font-weight="700">コネクタ</text>
+              <text x="441" y="108" text-anchor="middle" fill="#9cc4c0" font-size="12">IAM 認証</text>
+              <text x="441" y="128" text-anchor="middle" fill="#9cc4c0" font-size="12">短命トークン / 証明書</text>
+              <text x="441" y="148" text-anchor="middle" fill="#9cc4c0" font-size="12">RDS Proxy / Auth Proxy</text>
+
+              <rect x="556" y="36" width="160" height="140" rx="8" fill="#1f7a72" />
+              <text x="636" y="80" text-anchor="middle" fill="#fff" font-size="14" font-weight="700">TLS + SCRAM</text>
+              <text x="636" y="108" text-anchor="middle" fill="#e8f4f2" font-size="12">経路の暗号化</text>
+              <text x="636" y="128" text-anchor="middle" fill="#e8f4f2" font-size="12">パスワードを</text>
+              <text x="636" y="148" text-anchor="middle" fill="#e8f4f2" font-size="12">ハッシュで検証</text>
+
+              <rect x="736" y="36" width="168" height="140" rx="8" fill="#fff" stroke="#1b3a4b" />
+              <text x="820" y="80" text-anchor="middle" fill="#1b3a4b" font-size="14" font-weight="700">中の認可</text>
+              <text x="820" y="108" text-anchor="middle" fill="#445566" font-size="12">ROLE / GRANT</text>
+              <text x="820" y="128" text-anchor="middle" fill="#445566" font-size="12">列権限</text>
+              <text x="820" y="148" text-anchor="middle" fill="#445566" font-size="12">RLS ポリシー</text>
+            </svg>
+            <figcaption class="caption">図5. 外側から内側へ: 網を閉じる → 人間の長期パスワードをやめる → 通信を暗号化する → SQL で行を閉じる。</figcaption>
+          </figure>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表8. 認証・認可の部品</caption>
+              <thead>
+                <tr>
+                  <th>層</th>
+                  <th>PostgreSQL 本体</th>
+                  <th>AWS</th>
+                  <th>GCP</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>認証</td>
+                  <td>SCRAM-SHA-256、クライアント証明書、pg_hba</td>
+                  <td>IAM データベース認証、Secrets Manager 回転</td>
+                  <td>IAM データベース認証、Secret Manager</td>
+                </tr>
+                <tr>
+                  <td>接続の出し方</td>
+                  <td>libpq、sslmode=verify-full</td>
+                  <td>RDS Proxy、IAM トークン</td>
+                  <td>Cloud SQL Auth Proxy / 言語コネクタ、AlloyDB Auth Proxy</td>
+                </tr>
+                <tr>
+                  <td>ネットワーク</td>
+                  <td>listen_addresses、ホストベース</td>
+                  <td>VPC、SG、PrivateLink</td>
+                  <td>VPC、PSC、Private IP、VPC SC</td>
+                </tr>
+                <tr>
+                  <td>認可</td>
+                  <td>ROLE、GRANT（表・列）、RLS、SECURITY BARRIER VIEW</td>
+                  <td>IAM は接続まで。中の表権限は SQL</td>
+                  <td>同様。IAM と SQL 権限は別物</td>
+                </tr>
+                <tr>
+                  <td>監査・暗号</td>
+                  <td>pgaudit、pgcrypto（補助）</td>
+                  <td>保存時暗号は KMS、CloudTrail と併用</td>
+                  <td>CMEK、Cloud Audit Logs と併用</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="callout warn">
+            IAM 認証は「ログインできた」だけで、SELECT の範囲は RLS と GRANT です。プロキシを挟むとクライアント IP が全部プロキシに見えるので、pg_hba を IP 頼りにしない方がよいです。
+          </p>
+        </section>
+
+        <section class="panel" id="cloud">
+          <h2>8. AWS / GCP で使うほど見える対応表</h2>
+          <p class="lede">
+            両クラウドとも「PostgreSQL を核に、ストレージとプロキシだけ自社実装」という形に収束しています。アプリの SQL をあまり変えずに、可用性の上げ方だけ製品を選べます。
+          </p>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表9. やりたいこと → 製品</caption>
+              <thead>
+                <tr>
+                  <th>やりたいこと</th>
+                  <th>AWS</th>
+                  <th>GCP</th>
+                  <th>PostgreSQL 側で効くもの</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>普通の OLTP</td>
+                  <td>RDS for PostgreSQL</td>
+                  <td>Cloud SQL for PostgreSQL</td>
+                  <td>素の PG に近い。拡張リストを確認</td>
+                </tr>
+                <tr>
+                  <td>フェイルオーバーと I/O を楽に</td>
+                  <td>Aurora PostgreSQL</td>
+                  <td>AlloyDB</td>
+                  <td>SQL は PG。ストレージは独自</td>
+                </tr>
+                <tr>
+                  <td>分析も少し寄せたい</td>
+                  <td>Aurora + レプリカ / 倉庫へ複製</td>
+                  <td>AlloyDB の列指向エンジン</td>
+                  <td>同じプロトコルで OLTP を維持</td>
+                </tr>
+                <tr>
+                  <td>地図</td>
+                  <td>RDS/Aurora + PostGIS</td>
+                  <td>Cloud SQL/AlloyDB + PostGIS</td>
+                  <td>空間型と GiST</td>
+                </tr>
+                <tr>
+                  <td>ベクトル検索</td>
+                  <td>pgvector（対応バージョン）</td>
+                  <td>pgvector / AlloyDB AI</td>
+                  <td>関係データと JOIN できる</td>
+                </tr>
+                <tr>
+                  <td>接続の秘密を減らす</td>
+                  <td>IAM + RDS Proxy</td>
+                  <td>IAM + Auth Proxy / コネクタ</td>
+                  <td>ロールは DB 内に残す</td>
+                </tr>
+                <tr>
+                  <td>グローバル読み取り</td>
+                  <td>Aurora Global Database</td>
+                  <td>クロスリージョンレプリカ</td>
+                  <td>書き込みリージョンは一つが基本</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>AWS で「PG が本命」に見えるとき</h3>
+              <p>
+                Aurora の MySQL 版と PostgreSQL 版を比べると、拡張・JSON・制約・移行の持ち出しやすさで PostgreSQL 版に寄ることが多いです。RDS Proxy と IAM 認証が、接続数と秘密管理の両方を同時に解きます。
+              </p>
+            </div>
+            <div class="card">
+              <h3>GCP で「PG が本命」に見えるとき</h3>
+              <p>
+                Cloud SQL で足りなければ AlloyDB に上げても、アプリは libpq のままです。Auth Proxy がローカルでも GKE でも同じパターンになり、BigQuery は倉庫として横に置く（置き換えない）使い分けがはっきりします。
+              </p>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel" id="limits">
+          <h2>9. 向いていないこと（ここを直視すると、強みが嘘にならない）</h2>
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表10. 期待しすぎると壊れる点</caption>
+              <thead>
+                <tr>
+                  <th>やりたいこと</th>
+                  <th>現実</th>
+                  <th>代わり</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>書き込みを何倍にも水平分割</td>
+                  <td>単一プライマリが基本。Citus 等は別物</td>
+                  <td>シャード専用製品、または設計で書き込みを減らす</td>
+                </tr>
+                <tr>
+                  <td>サーバレスでゼロ運用</td>
+                  <td>接続と VACUUM と統計が残る</td>
+                  <td>Aurora Serverless 等でも「RDB の運用」は消えない</td>
+                </tr>
+                <tr>
+                  <td>巨大な入れ子 JSON を主データに</td>
+                  <td>更新は行書き換え、TOAST、GIN 肥大</td>
+                  <td>ホットキーは列へ。巨大文書はオブジェクトストレージ</td>
+                </tr>
+                <tr>
+                  <td>任意の拡張をマネージドへ</td>
+                  <td>許可リスト以外は不可</td>
+                  <td>必要拡張でクラウド／自前を決める</td>
+                </tr>
+                <tr>
+                  <td>ペタバイトの倉庫 SQL</td>
+                  <td>OLTP エンジンの仕事ではない</td>
+                  <td>BigQuery、Redshift、Snowflake へ複製</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="lede">
+            まとめ: PostgreSQL の強さは「RDB の約束（制約・トランザクション・SQL）を捨てずに、JSON・GIS・ベクトル・監査を同じバックアップ単位に足せる」ことです。AWS と GCP はその核を壊さずに、接続・ディスク・フェイルオーバーだけを製品化したので、使うほど差がはっきりします。
+          </p>
+        </section>
+      </main>
+    </div>
+    <script src="src/postgresql/postgresqlNav.js"></script>
+  </body>
+</html>
