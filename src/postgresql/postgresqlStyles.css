@@ -188,6 +188,13 @@ td {
   vertical-align: top;
   padding: 8px 10px;
   border-bottom: 1px solid #edf1f5;
+  overflow-wrap: break-word;
+  word-break: keep-all;
+}
+
+th:first-child,
+td:first-child {
+  min-width: 8.5em;
 }
 
 thead th {
