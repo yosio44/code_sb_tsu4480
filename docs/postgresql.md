@@ -194,7 +194,47 @@ IAM でログインできても SELECT の範囲は GRANT と RLS です。プ�
 | 接続の秘密を減らす | IAM + RDS Proxy | IAM + Auth Proxy | ロールは DB 内 |
 | グローバル読み取り | Aurora Global | クロスリージョンレプリカ | 書き込みリージョンは一つが基本 |
 
-## 9. 向いていないこと
+## 9. GCP の使い分け（Professional Database Engineer）
+
+試験の定番は「PostgreSQL をフルに使うか」「書き込みをリージョン障害後も自動で続けるか」「コストか性能か」の三つ。**AlloyDB のマルチリージョンは Spanner のマルチリージョンではない**（secondary は読み取り専用・非同期）。問題文が「AlloyDB」だけのときは、特に断りがなければリージョナル HA（99.99%、メンテ込み）。MySQL / SQL Server なら AlloyDB は選べない。
+
+```mermaid
+flowchart TD
+  pg{PG の拡張・方言をフルに使う?}
+  pg -->|No: グローバル強整合・水平書き込み| SpannerMR[Spanner マルチリージョン]
+  pg -->|Yes| region{リージョン喪失後も自動で書ける?}
+  region -->|Yes| SpannerLimit[それでも Spanner<br/>PG方言は制限]
+  region -->|No| fit{Cloud SQL の性能・SLA で足りる?}
+  fit -->|コスト優先| CS[Cloud SQL Enterprise]
+  fit -->|99.99% メンテ込み| Plus[Cloud SQL Enterprise Plus]
+  fit -->|HTAP / ベクトル / 高性能| AlReg[AlloyDB リージョナル]
+  fit -->|他リージョン読取と DR| AlMR[AlloyDB マルチリージョン]
+```
+
+| 選択肢 | 中身 | SLA（目安） | 書き込み | 試験で選ぶとき |
+| --- | --- | --- | --- | --- |
+| Cloud SQL for PostgreSQL（Enterprise） | 素の PG に近い。リフト＆シフトの既定 | HA 99.95%。メンテは除外 | 単一プライマリ。クロスリージョンは非同期読取 | コスト優先、標準 OLTP |
+| Cloud SQL Enterprise Plus | データキャッシュ、read pool、ほぼ無停止メンテ、Advanced DR | HA 99.99%。メンテ込み | 単一プライマリ。書き込みエンドポイントを維持できる | ミッションクリティカルだが HTAP までは不要 |
+| AlloyDB（製品名） | PG 互換 Google エンジン。ストレージ分離、列指向、AI | HA 99.99%。メンテ込み。フェイルオーバー目安 60 秒以内 | プライマリインスタンスだけが書く | 「AlloyDB」とだけあればだいたいこれ |
+| リージョナル AlloyDB | 1 リージョン。プライマリ 2 ゾーン HA + read pool | ゾーン障害に耐える。リージョン喪失は耐えない | そのリージョンのみ | 重い PG、OLTP+分析、Cloud SQL では足りない |
+| マルチリージョン AlloyDB | プライマリ + 最大 5 secondary。非同期 | 読取と DR。promote / failover / switchover が要る | secondary には書けない。planned switchover はゼロデータロス | 書き込みは本拠地1つ。他リージョンは読取と災害対策 |
+| Spanner マルチリージョン | ネイティブ。PG 方言はあるが拡張はほぼ不可 | 99.999%（リージョナル Spanner は 99.99%） | クォーラム。リージョン喪失後も書き込みが生きる | 水平書き込み、グローバル強整合、台帳・在庫 |
+
+| 問題文の手がかり | 選ぶ | 落とす選択肢 |
+| --- | --- | --- |
+| 最小変更・コスト最小・普通の HA | Cloud SQL Enterprise | AlloyDB / Spanner は過剰 |
+| 99.99% メンテ込み、データキャッシュ、メンテ 1 秒未満 | Cloud SQL Enterprise Plus | Enterprise はメンテ除外。AlloyDB は HTAP が無いと過剰 |
+| 同一 PG で OLTP+分析、列指向、ベクトル | リージョナル AlloyDB | Spanner は互換不足 |
+| 東京書き込み、他リージョンは読取と DR、拡張は残す | マルチリージョン AlloyDB | Spanner は書き込みモデルが違う |
+| 米欧同時更新、リージョン落ちても書き込み継続、99.999% | Spanner マルチリージョン | AlloyDB secondary は読取専用 |
+| 既存が MySQL / SQL Server | Cloud SQL | AlloyDB は PG のみ |
+| ペタバイトの倉庫 | BigQuery | AlloyDB 列指向は HTAP 補助 |
+
+覚え方: Cloud SQL は普通の PostgreSQL、Plus は止まらない普通の PostgreSQL、AlloyDB は速い PostgreSQL、AlloyDB マルチリージョンは速い PostgreSQL の読取と DR、Spanner マルチリージョンはグローバル書き込み機に PG の顔を付けたもの。
+
+SLA の適用条件（HA 有効、read pool 2 ノード以上など）を満たさない構成は数字どおりになりません。数値は改定されるので各 SLA ページを確認してください。
+
+## 10. 向いていないこと
 
 | やりたいこと | 現実 | 代わり |
 | --- | --- | --- |

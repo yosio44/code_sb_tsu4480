@@ -357,6 +357,7 @@ pre,
           <li><a href="#migrate">移行</a></li>
           <li><a href="#security">接続の安全性</a></li>
           <li><a href="#cloud">AWS / GCP</a></li>
+          <li><a href="#gcp-pde">GCP 使い分け（試験）</a></li>
           <li><a href="#limits">向いていないこと</a></li>
         </ol>
       </nav>
@@ -1156,11 +1157,282 @@ CREATE INDEX orders_customer_idx ON orders (customer_id);</code></pre>
           </div>
         </section>
 
-        <section class="panel" id="limits">
-          <h2>9. 向いていないこと（ここを直視すると、強みが嘘にならない）</h2>
+        <section class="panel" id="gcp-pde">
+          <h2>9. GCP の使い分け — Professional Database Engineer 対策</h2>
+          <p class="lede">
+            試験の定番は「PostgreSQL をフルに使うか」「書き込みをリージョン障害後も自動で続けるか」「コストか性能か」の三つです。
+            <strong>AlloyDB のマルチリージョンは Spanner のマルチリージョンではない</strong>（secondary は読み取り専用・非同期）と覚えると、ひっかけが消えます。
+            以下の SLA は公式の月次稼働率です。数値は改定されるので本番前に各 SLA ページを確認してください。
+          </p>
+
+          <figure class="figure" aria-label="GCP PostgreSQL系の選び方">
+            <svg viewBox="0 0 920 360" role="img" aria-labelledby="pde-title pde-desc">
+              <title id="pde-title">Professional Database Engineer 向けの選び方</title>
+              <desc id="pde-desc">
+                PostgreSQL拡張が必要か、リージョン障害後も自動で書き込みが生きるか、性能とコストで Cloud SQL と AlloyDB を分ける
+              </desc>
+              <rect x="20" y="16" width="280" height="56" rx="8" fill="#123047" />
+              <text x="160" y="40" text-anchor="middle" fill="#f4fbfa" font-size="14" font-weight="700">PG の拡張・方言をフルに使う？</text>
+              <text x="160" y="58" text-anchor="middle" fill="#9cc4c0" font-size="11">PostGIS / pgvector / 既存 SQL</text>
+
+              <text x="330" y="28" fill="#9b1c1c" font-size="12">No</text>
+              <path d="M300 36 H 360" stroke="#9b1c1c" stroke-width="2" />
+              <rect x="360" y="12" width="250" height="52" rx="8" fill="#fde2e2" stroke="#9b1c1c" />
+              <text x="485" y="34" text-anchor="middle" fill="#9b1c1c" font-size="13" font-weight="700">Spanner マルチリージョン</text>
+              <text x="485" y="52" text-anchor="middle" fill="#1b3a4b" font-size="11">99.999%・水平書き込み・強整合</text>
+
+              <text x="160" y="88" fill="#1f7a72" font-size="12">Yes</text>
+              <path d="M160 72 V 104" stroke="#1f7a72" stroke-width="2" />
+              <rect x="20" y="104" width="280" height="52" rx="8" fill="#1f7a72" />
+              <text x="160" y="126" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">リージョン喪失後も自動で書ける？</text>
+              <text x="160" y="144" text-anchor="middle" fill="#e8f4f2" font-size="11">promote なしで書き込み継続</text>
+
+              <text x="330" y="122" fill="#9b1c1c" font-size="12">Yes</text>
+              <path d="M300 128 H 360" stroke="#9b1c1c" stroke-width="2" />
+              <rect x="360" y="104" width="250" height="52" rx="8" fill="#fff3d6" stroke="#8a5a00" />
+              <text x="485" y="126" text-anchor="middle" fill="#8a5a00" font-size="13" font-weight="700">それでも Spanner</text>
+              <text x="485" y="144" text-anchor="middle" fill="#6b5420" font-size="11">PG 方言は制限。拡張はほぼ不可</text>
+
+              <text x="160" y="172" fill="#1f7a72" font-size="12">No（書き込みは1リージョンでよい）</text>
+              <path d="M160 156 V 196" stroke="#1f7a72" stroke-width="2" />
+              <rect x="20" y="196" width="280" height="48" rx="8" fill="#e8f4f2" stroke="#1f7a72" />
+              <text x="160" y="226" text-anchor="middle" fill="#1b3a4b" font-size="13">Cloud SQL の性能・SLA で足りる？</text>
+
+              <rect x="340" y="188" width="170" height="64" rx="8" fill="#fff" stroke="#1b3a4b" />
+              <text x="425" y="214" text-anchor="middle" fill="#1b3a4b" font-size="12" font-weight="700">Cloud SQL</text>
+              <text x="425" y="234" text-anchor="middle" fill="#5b6b7c" font-size="11">Enterprise（安い）</text>
+              <rect x="528" y="188" width="180" height="64" rx="8" fill="#d9f6e8" stroke="#146b3a" />
+              <text x="618" y="214" text-anchor="middle" fill="#146b3a" font-size="12" font-weight="700">Cloud SQL Plus</text>
+              <text x="618" y="234" text-anchor="middle" fill="#1b3a4b" font-size="11">99.99%・データキャッシュ</text>
+              <rect x="726" y="176" width="174" height="44" rx="8" fill="#123047" />
+              <text x="813" y="194" text-anchor="middle" fill="#f4fbfa" font-size="12" font-weight="700">AlloyDB リージョナル</text>
+              <text x="813" y="210" text-anchor="middle" fill="#9cc4c0" font-size="11">HTAP / ベクトル / 高性能</text>
+              <rect x="726" y="228" width="174" height="44" rx="8" fill="#1b3a4b" />
+              <text x="813" y="246" text-anchor="middle" fill="#f4fbfa" font-size="12" font-weight="700">AlloyDB マルチリージョン</text>
+              <text x="813" y="262" text-anchor="middle" fill="#9cc4c0" font-size="11">他リージョン読取 + DR</text>
+
+              <text x="460" y="292" text-anchor="middle" fill="#5b6b7c" font-size="12">AlloyDB マルチリージョン = プライマリ + 非同期 secondary（読取専用）。Spanner マルチリージョン = クォーラムで書き込みがリージョン障害に耐える。</text>
+              <text x="460" y="314" text-anchor="middle" fill="#5b6b7c" font-size="12">試験で「AlloyDB」とだけ書いてあれば、特に断りがない限りリージョナル HA（99.99%、メンテ込み）。</text>
+              <text x="460" y="336" text-anchor="middle" fill="#5b6b7c" font-size="12">MySQL / SQL Server が必要なら AlloyDB は選べない。答えは Cloud SQL。</text>
+            </svg>
+            <figcaption class="caption">図6. 試験用の分岐。先に「PG をフルに使うか」と「書き込みのリージョン耐性」を切ると、AlloyDB と Spanner を取り違えない。</figcaption>
+          </figure>
+
           <div class="table-wrap">
             <table>
-              <caption class="caption">表10. 期待しすぎると壊れる点</caption>
+              <caption class="caption">表11. 製品・トポロジの地図（Professional Database Engineer）</caption>
+              <thead>
+                <tr>
+                  <th>選択肢</th>
+                  <th>中身</th>
+                  <th>SLA（目安）</th>
+                  <th>書き込み</th>
+                  <th>試験で選ぶとき</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Cloud SQL for PostgreSQL<br /><span class="badge na">Enterprise</span></td>
+                  <td>素の PostgreSQL に近いマネージド。リフト＆シフトの既定。</td>
+                  <td>HA で 99.95%。<strong>メンテは除外</strong>。</td>
+                  <td>単一プライマリ。クロスリージョンレプリカは非同期・読取。</td>
+                  <td>コスト優先、標準 OLTP、既存 PG を最小変更で移す。MySQL/SQL Server も同じ製品族。</td>
+                </tr>
+                <tr>
+                  <td>Cloud SQL for PostgreSQL<br /><span class="badge strong">Enterprise Plus</span></td>
+                  <td>同じエンジン + データキャッシュ、read pool、ほぼ無停止メンテ、Advanced DR（書き込みエンドポイント）。</td>
+                  <td>HA で 99.99%。<strong>メンテ込み</strong>。</td>
+                  <td>単一プライマリ。DR 切替後も書き込みエンドポイントを維持できる。</td>
+                  <td>ミッションクリティカルだが AlloyDB ほど HTAP/性能は要らない。PITR 35日、メンテ &lt; 1秒。</td>
+                </tr>
+                <tr>
+                  <td>AlloyDB for PostgreSQL<br /><span class="badge mid">製品名</span></td>
+                  <td>PostgreSQL 互換の Google エンジン。コンピュートとストレージ分離、列指向、AI/ベクトル。</td>
+                  <td>HA（マルチゾーン）で 99.99%。<strong>メンテ込み</strong>。フェイルオーバー目安 60秒以内。</td>
+                  <td>クラスタのプライマリインスタンスだけが書く。</td>
+                  <td>問題文が「AlloyDB」だけのときは、だいたいこのリージョナル HA を指す。</td>
+                </tr>
+                <tr>
+                  <td>リージョナル AlloyDB</td>
+                  <td>1 リージョン内。プライマリ（2ゾーン HA）+ 任意の read pool（2ノード以上で HA）。</td>
+                  <td>ゾーン障害に耐える。リージョン喪失は耐えない。</td>
+                  <td>そのリージョンのプライマリのみ。</td>
+                  <td>重い PG、同一 DB で OLTP+分析、Cloud SQL では CPU/I/O が足りない、pgvector を本気で使う。</td>
+                </tr>
+                <tr>
+                  <td>マルチリージョン AlloyDB</td>
+                  <td>プライマリクラスタ + 最大 5 つの secondary クラスタ。ストレージ層の<strong>非同期</strong>レプリ。</td>
+                  <td>secondary は読取と DR。リージョン障害時は <strong>promote / failover / switchover</strong> が要る。</td>
+                  <td>secondary には書けない。planned switchover はゼロデータロス。</td>
+                  <td>書き込みは本拠地1つでよい。他リージョンは低遅延読取と災害対策。Spanner の 99.999% ではない。</td>
+                </tr>
+                <tr>
+                  <td>Spanner マルチリージョン</td>
+                  <td>Google ネイティブ。PostgreSQL <strong>方言</strong>は使えるが拡張はほぼ不可。TrueTime で外部整合。</td>
+                  <td>マルチリージョン / デュアルリージョンで <strong>99.999%</strong>。リージョナル Spanner は 99.99%。</td>
+                  <td>リーダー経由だが、書き込みは複数リージョンのクォーラム。リージョン喪失後も書き込みが生きる。</td>
+                  <td>水平書き込み、グローバル強整合、台帳・在庫、リージョン障害でも自動継続。PG 拡張が必要なら選ばない。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表12. シナリオ → 答え（試験の型）</caption>
+              <thead>
+                <tr>
+                  <th>問題文の手がかり</th>
+                  <th>選ぶ</th>
+                  <th>落とす選択肢</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>オンプレ PostgreSQL を最小変更、コスト最小、可用性は「普通の HA でよい」</td>
+                  <td>Cloud SQL for PostgreSQL（Enterprise）</td>
+                  <td>AlloyDB / Spanner は過剰。Plus は要件に 99.99% やほぼ無停止メンテが無いと高い</td>
+                </tr>
+                <tr>
+                  <td>99.99%（メンテ込み）、データキャッシュ、メンテ 1 秒未満、PITR 長め、Advanced DR</td>
+                  <td>Cloud SQL Enterprise Plus</td>
+                  <td>Enterprise の 99.95% はメンテ除外。AlloyDB は HTAP/性能の話が無いと過剰</td>
+                </tr>
+                <tr>
+                  <td>同じ PostgreSQL でトランザクションも分析も、列指向、ベクトル検索、Cloud SQL より数倍速い</td>
+                  <td>リージョナル AlloyDB</td>
+                  <td>Spanner は互換が足りない。Cloud SQL は HTAP が本題だと弱い</td>
+                </tr>
+                <tr>
+                  <td>東京が書き込み、大阪や海外は読み取りと DR。RPO は数秒まで許容。拡張は残したい</td>
+                  <td>マルチリージョン AlloyDB（secondary）</td>
+                  <td>Spanner マルチリージョンは書き込みモデルが違うし拡張が落ちる</td>
+                </tr>
+                <tr>
+                  <td>米欧から同時に在庫を更新、リージョンが落ちても書き込み継続、99.999%、強整合</td>
+                  <td>Spanner マルチリージョン</td>
+                  <td>AlloyDB secondary は読取専用。Cloud SQL クロスリージョンも非同期読取</td>
+                </tr>
+                <tr>
+                  <td>既存が MySQL / SQL Server</td>
+                  <td>Cloud SQL（該当エンジン）。クリティカルなら Enterprise Plus</td>
+                  <td>AlloyDB は PostgreSQL のみ</td>
+                </tr>
+                <tr>
+                  <td>倉庫 SQL、ペタバイト、アドホック分析が主</td>
+                  <td>BigQuery（必要なら Datastream / レプリで OLTP から複製）</td>
+                  <td>AlloyDB 列指向は HTAP 補助。倉庫の置き換えではない</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表13. 試験で差がつく比較軸</caption>
+              <thead>
+                <tr>
+                  <th>軸</th>
+                  <th>Cloud SQL Enterprise</th>
+                  <th>Cloud SQL Plus</th>
+                  <th>AlloyDB リージョナル</th>
+                  <th>AlloyDB マルチリージョン</th>
+                  <th>Spanner マルチリージョン</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>PostgreSQL 互換</td>
+                  <td><span class="badge strong">高い</span></td>
+                  <td><span class="badge strong">高い</span></td>
+                  <td><span class="badge strong">高い</span></td>
+                  <td><span class="badge strong">高い</span></td>
+                  <td><span class="badge weak">方言</span></td>
+                </tr>
+                <tr>
+                  <td>拡張（PostGIS 等）</td>
+                  <td><span class="badge strong">許可リスト</span></td>
+                  <td><span class="badge strong">許可リスト</span></td>
+                  <td><span class="badge strong">許可リスト</span></td>
+                  <td><span class="badge strong">同じ</span></td>
+                  <td><span class="badge weak">ほぼ不可</span></td>
+                </tr>
+                <tr>
+                  <td>メンテ込み SLA</td>
+                  <td><span class="badge mid">99.95%（メンテ除外）</span></td>
+                  <td><span class="badge strong">99.99%</span></td>
+                  <td><span class="badge strong">99.99%</span></td>
+                  <td><span class="badge na">DR は別</span></td>
+                  <td><span class="badge strong">99.999%</span></td>
+                </tr>
+                <tr>
+                  <td>リージョン障害と書き込み</td>
+                  <td><span class="badge weak">手動/非同期 DR</span></td>
+                  <td><span class="badge mid">Advanced DR</span></td>
+                  <td><span class="badge weak">耐えない</span></td>
+                  <td><span class="badge mid">promote が必要</span></td>
+                  <td><span class="badge strong">クォーラムで継続</span></td>
+                </tr>
+                <tr>
+                  <td>書き込みの伸ばし方</td>
+                  <td>垂直</td>
+                  <td>垂直 + キャッシュ</td>
+                  <td>垂直 + 分離ストレージ</td>
+                  <td>プライマリは1つ</td>
+                  <td>水平</td>
+                </tr>
+                <tr>
+                  <td>他リージョン読取</td>
+                  <td>レプリカ（非同期）</td>
+                  <td>レプリカ / Advanced DR</td>
+                  <td>リージョン内 read pool</td>
+                  <td>secondary + その read pool</td>
+                  <td>レプリカから強整合読取も可</td>
+                </tr>
+                <tr>
+                  <td>HTAP / ベクトル</td>
+                  <td>普通の PG</td>
+                  <td>キャッシュで OLTP 寄り</td>
+                  <td>列指向 + ScaNN/pgvector</td>
+                  <td>同じエンジン</td>
+                  <td>別モデル（PG HTAP ではない）</td>
+                </tr>
+                <tr>
+                  <td>コスト（相対）</td>
+                  <td><span class="badge strong">低</span></td>
+                  <td><span class="badge mid">中</span></td>
+                  <td><span class="badge mid">高</span></td>
+                  <td><span class="badge weak">より高</span></td>
+                  <td><span class="badge weak">最高水準</span></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="grid-2">
+            <div class="card">
+              <h3>覚え方（1文）</h3>
+              <p>
+                Cloud SQL は「普通の PostgreSQL」、Plus は「止まらない普通の PostgreSQL」、AlloyDB は「速い PostgreSQL」、AlloyDB マルチリージョンは「速い PostgreSQL の読み取りと DR を他リージョンへ」、Spanner マルチリージョンは「PostgreSQL ではなくグローバル書き込み機」に PG の顔を付けたもの。
+              </p>
+            </div>
+            <div class="card">
+              <h3>ひっかけ</h3>
+              <p>
+                「マルチリージョン」と書いただけでは AlloyDB と Spanner を同じにしない。secondary への書き込み、99.999%、リージョン喪失後の自動書き込み継続、のいずれかがあれば Spanner。拡張・列指向・ベクトルがあれば AlloyDB。99.99% とメンテ込みだけで HTAP の話が無ければ Cloud SQL Plus で足りることが多い。
+              </p>
+            </div>
+          </div>
+          <p class="callout warn">
+            投資アドバイスではなく試験用の機能地図です。SLA の適用条件（HA 有効、read pool 2 ノード以上、対象リージョンなど）を満たさない構成は数字どおりになりません。
+          </p>
+        </section>
+
+        <section class="panel" id="limits">
+          <h2>10. 向いていないこと（ここを直視すると、強みが嘘にならない）</h2>
+          <div class="table-wrap">
+            <table>
+              <caption class="caption">表14. 期待しすぎると壊れる点</caption>
               <thead>
                 <tr>
                   <th>やりたいこと</th>
