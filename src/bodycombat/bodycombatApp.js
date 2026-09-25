@@ -125,9 +125,11 @@ function classMinutes() {
 
 function loadBufferMin() {
   try {
-    return clampBufferMin(60, localStorage.getItem(BUFFER_STORAGE_KEY));
+    const saved = localStorage.getItem(BUFFER_STORAGE_KEY);
+    if (saved == null || saved === "") return 5;
+    return clampBufferMin(60, saved);
   } catch {
-    return 0;
+    return 5;
   }
 }
 

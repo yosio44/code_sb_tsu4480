@@ -35,7 +35,7 @@ globs:
 - 45 minutes: tracks 1–7 in order, then exactly one of track 8, 9, or 10.
 - 30 minutes: warmup, track 2, track 3, track 7, then track 9 or 10 (5–6 songs).
 - One custom format, shown beside 30/45/60. The user sets the time (30, 45, or 60), the ordered track roles, and the song count. Save it in localStorage (`customFormat.js`) and build that order inside the chosen time.
-- A grace period of 0–15 minutes shortens only the song total (a 60 minute class with 5 minutes of grace uses at most 55 minutes of music). The track order stays the class format. Persist it in localStorage.
+- A grace period of 0–15 minutes shortens only the song total. The initial value is 5 minutes, so a 60 minute class starts with at most 55 minutes of music. The track order stays the class format. Persist edits in localStorage; an empty store uses 5, and an explicit 0 stays 0.
 
 ## Testing
 
