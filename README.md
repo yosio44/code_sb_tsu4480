@@ -71,6 +71,18 @@ npm run receipts
 
 See [`docs/receipts.md`](docs/receipts.md). Never commit real receipt images or exported receipt CSVs.
 
+## BodyCombat program builder
+
+Builds a 30, 45, or 60 minute BodyCombat class from tracks listed on [ボディコンバットナビ](https://www.fhstr.net/archives/34). Ratings and durations start as placeholders and can be edited in the browser.
+
+```bash
+npm install
+npm run bodycombat
+# open http://localhost:1237/bodycombat.html
+```
+
+See [`docs/bodycombat.md`](docs/bodycombat.md).
+
 ## Parcel demo (legacy sandbox)
 
 ```bash
