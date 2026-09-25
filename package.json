@@ -11,6 +11,7 @@
     "quotes": "node tools/stock-quotes/cli.js",
     "kakeibo": "node tools/kakeibo/syncAuthConfig.js && parcel kakeibo.html --port 1235",
     "receipts": "node tools/kakeibo/syncAuthConfig.js && parcel receipts.html --port 1236",
+    "bodycombat": "parcel bodycombat.html --port 1237",
     "test": "node --test"
   },
   "dependencies": {

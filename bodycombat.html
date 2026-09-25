@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>ボディコンバット プログラム作成</title>
+    <link rel="stylesheet" href="src/bodycombat/bodycombatStyles.css" />
+  </head>
+  <body>
+    <div class="wrap">
+      <header class="hero">
+        <p class="eyebrow">Les Mills BodyCombat</p>
+        <h1>時間で組むボディコンバット</h1>
+        <p class="lede">
+          30分・45分・60分の決まった曲順に合わせて、過去リリースの曲から時間内に収まるプログラムを作ります。評価（1〜5）と曲の長さは仮の値なので、あとから自分の感覚で直せます。
+        </p>
+      </header>
+
+      <section class="panel" aria-label="条件">
+        <div class="time-row" role="group" aria-label="クラスの長さ">
+          <button type="button" class="time-btn" data-minutes="30">30分</button>
+          <button type="button" class="time-btn is-active" data-minutes="45">45分</button>
+          <button type="button" class="time-btn" data-minutes="60">60分</button>
+        </div>
+        <p id="format-detail" class="format-detail"></p>
+
+        <div class="controls">
+          <label>
+            評価の下限
+            <select id="min-rating">
+              <option value="1">1以上（すべて）</option>
+              <option value="2">2以上</option>
+              <option value="3">3以上</option>
+              <option value="4">4以上</option>
+              <option value="5">5だけ</option>
+            </select>
+          </label>
+          <label>
+            リリース
+            <select id="release-mode">
+              <option value="mix">全リリースから混ぜる</option>
+              <option value="auto">1つのリリースで評価が高いもの</option>
+              <option value="one">指定したリリースだけ</option>
+            </select>
+          </label>
+          <label id="release-pick-label">
+            指定リリース
+            <select id="release-pick"></select>
+          </label>
+          <label>
+            開始
+            <select id="release-from"></select>
+          </label>
+          <label>
+            終了
+            <select id="release-to"></select>
+          </label>
+          <label class="check">
+            <input id="include-bonus" type="checkbox" />
+            ボーナス曲も候補に入れる
+          </label>
+        </div>
+        <div class="action-row">
+          <button type="button" id="rebuild" class="primary">別の組み合わせを作る</button>
+          <button type="button" id="clear-locks">曲の固定を解除</button>
+          <button type="button" id="copy-program">プログラムをコピー</button>
+        </div>
+        <p id="copy-status" class="hint" role="status"></p>
+      </section>
+
+      <section class="panel" aria-live="polite">
+        <div class="summary">
+          <h2 id="program-title">プログラム</h2>
+          <p id="program-total" class="total"></p>
+        </div>
+        <div class="meter" aria-hidden="true"><span id="meter-bar"></span></div>
+        <p id="program-note" class="note"></p>
+        <ol id="program-list" class="program-list"></ol>
+      </section>
+
+      <section class="panel">
+        <h2>曲一覧と評価</h2>
+        <p class="hint">
+          星を押すとその曲の評価がこのブラウザに保存されます。長さは「分:秒」です。仮の長さはクラスが時間に収まるように置いた目安で、実測が分かったら書き換えてください。
+        </p>
+        <div class="controls">
+          <label>
+            リリース
+            <select id="catalog-release"></select>
+          </label>
+          <label>
+            役割
+            <select id="catalog-role">
+              <option value="">すべて</option>
+              <option value="1A">ウォーミングアップ（上半身）</option>
+              <option value="1B">ウォーミングアップ（下半身）</option>
+              <option value="1">ウォーミングアップ</option>
+              <option value="2">コンバット1</option>
+              <option value="3">パワー1</option>
+              <option value="4">コンバット2</option>
+              <option value="5">パワー2</option>
+              <option value="5A">パワー2（前半）</option>
+              <option value="5B">パワー2（後半）</option>
+              <option value="6">コンバット3</option>
+              <option value="7">ムエタイ</option>
+              <option value="8">パワー3</option>
+              <option value="9">筋力コンディショニング</option>
+              <option value="10">クールダウン</option>
+            </select>
+          </label>
+          <label class="grow">
+            曲名・アーティスト
+            <input id="catalog-query" type="search" placeholder="例: Barracuda / BC100" />
+          </label>
+        </div>
+        <p id="catalog-count" class="hint"></p>
+        <div id="catalog-list" class="catalog-list"></div>
+      </section>
+
+      <footer class="footnote">
+        <p>
+          曲名とアーティストは
+          <a href="https://www.fhstr.net/archives/34" rel="noreferrer">ボディコンバットナビの曲紹介</a>
+          と、そこから辿れる各BCリリースの掲載情報をアプリ内に保存しています。BC2とBC3の曲一覧はこのサイトにありません。
+        </p>
+      </footer>
+    </div>
+    <script src="src/bodycombat/bodycombatApp.js"></script>
+  </body>
+</html>

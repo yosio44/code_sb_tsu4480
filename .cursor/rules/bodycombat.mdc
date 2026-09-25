@@ -1,0 +1,41 @@
+---
+description: Rules for the BodyCombat class builder
+globs:
+  - src/bodycombat/**
+  - test/bodycombat/**
+  - docs/bodycombat.md
+  - bodycombat.html
+  - .github/workflows/deploy-pages.yml
+---
+
+# BodyCombat program builder
+
+## Scope
+
+- Assemble a 30, 45, or 60 minute BodyCombat class from the embedded track
+  catalog. Follow the fixed track order for that duration and keep the total
+  inside the selected time.
+- Do not add workout coaching, calorie targets, or training plans.
+- Keep this tool independent from the Parcel demo (`src/index3.js`), news
+  (`src/news/**`), kakeibo (`src/kakeibo/**`), and receipts (`src/receipts/**`).
+
+## Catalog
+
+- Track titles and artists come from https://www.fhstr.net/archives/34 and the
+  BC release pages linked there. Store them in `src/bodycombat/catalog.js`.
+- Do not copy choreography write-ups from that site into the app.
+- Placeholder ratings are integers 1–5. Durations are estimates, labeled as
+  such in the UI, and must stay editable.
+- User edits live in localStorage only (`metaStore.js`).
+
+## Class shape
+
+- 60 minutes: tracks 1A, 1B, 2, 3, 4, 5, 6, 7, 8, 9, 10 in order. A single
+  track 1 can stand in for 1A+1B. Track 5 may be one song or 5A then 5B.
+- 45 minutes: tracks 1–7 in order, then exactly one of track 8, 9, or 10.
+- 30 minutes: warmup, track 2, track 3, track 7, then track 9 or 10 (5–6 songs).
+
+## Testing
+
+- Keep unit tests in `test/bodycombat/` and run them with `node --test`.
+- `buildProgram.js` stays free of DOM and `localStorage` so the tests can call it directly.
