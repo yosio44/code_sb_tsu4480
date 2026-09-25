@@ -2,6 +2,16 @@ import { tracks as catalogTracks } from "./catalog.js";
 import { FORMATS, roleLabel } from "./roles.js";
 import { applyMeta, loadMeta, saveMeta } from "./metaStore.js";
 import {
+  CUSTOM_ROLE_OPTIONS,
+  MAX_CUSTOM_SONGS,
+  customRoleLabel,
+  describeCustom,
+  loadCustomFormat,
+  moveRole,
+  resizeRoles,
+  saveCustomFormat,
+} from "./customFormat.js";
+import {
   buildProgram,
   candidatesForSlot,
   formatDuration,
@@ -11,8 +21,12 @@ import {
   replaceSong,
 } from "./buildProgram.js";
 
+const savedCustom = loadCustomFormat();
+
 const state = {
-  minutes: 45,
+  minutes: savedCustom.selected ? savedCustom.minutes : 45,
+  formatMode: savedCustom.selected ? "custom" : "preset",
+  custom: savedCustom,
   seed: 1,
   minRating: 1,
   includeBonus: false,
@@ -45,8 +59,10 @@ function escapeHtml(value) {
 function buildOptions() {
   const sameRelease =
     state.releaseMode === "auto" ? "auto" : state.releaseMode === "one" ? state.releaseId : "mix";
+  const custom = state.formatMode === "custom";
   return {
-    minutes: state.minutes,
+    minutes: custom ? state.custom.minutes : state.minutes,
+    customRoles: custom ? state.custom.roles : null,
     seed: state.seed,
     minRating: state.minRating,
     includeBonus: state.includeBonus,
@@ -98,12 +114,53 @@ function starsHtml(id, rating, custom) {
   }</div>`;
 }
 
-function renderFormat() {
-  document.querySelectorAll(".time-btn").forEach((button) => {
-    button.classList.toggle("is-active", Number(button.dataset.minutes) === state.minutes);
+function persistCustom() {
+  state.custom = saveCustomFormat({
+    ...state.custom,
+    selected: state.formatMode === "custom",
   });
-  document.querySelector("#format-detail").textContent = FORMATS[state.minutes].detail;
+}
+
+function roleOptions(selected) {
+  return CUSTOM_ROLE_OPTIONS.map(
+    (option) =>
+      `<option value="${escapeHtml(option.id)}"${option.id === selected ? " selected" : ""}>${escapeHtml(option.label)}</option>`
+  ).join("");
+}
+
+function renderCustomEditor() {
+  const editor = document.querySelector("#custom-editor");
+  editor.hidden = state.formatMode !== "custom";
+  if (editor.hidden) return;
+  document.querySelector("#custom-minutes").value = String(state.custom.minutes);
+  document.querySelector("#custom-count").value = String(state.custom.roles.length);
+  document.querySelector("#custom-slots").innerHTML = state.custom.roles
+    .map((roleId, index) => {
+      const up = index === 0 ? " disabled" : "";
+      const down = index === state.custom.roles.length - 1 ? " disabled" : "";
+      return `<li class="custom-slot">
+        <span class="custom-index">${index + 1}</span>
+        <select data-custom-index="${index}" aria-label="${index + 1}曲目の種類">${roleOptions(roleId)}</select>
+        <span class="custom-move">
+          <button type="button" data-custom-move="-1" data-custom-index="${index}"${up}>上へ</button>
+          <button type="button" data-custom-move="1" data-custom-index="${index}"${down}>下へ</button>
+        </span>
+      </li>`;
+    })
+    .join("");
+}
+
+function renderFormat() {
+  const custom = state.formatMode === "custom";
+  document.querySelectorAll(".time-btn").forEach((button) => {
+    const active = button.dataset.format === "custom" ? custom : !custom && Number(button.dataset.minutes) === state.minutes;
+    button.classList.toggle("is-active", active);
+  });
+  document.querySelector("#format-detail").textContent = custom
+    ? describeCustom(state.custom)
+    : FORMATS[state.minutes].detail;
   document.querySelector("#release-pick-label").hidden = state.releaseMode !== "one";
+  renderCustomEditor();
 }
 
 function renderProgram() {
@@ -271,10 +328,63 @@ function syncCurrentSong(id) {
 
 function bind() {
   document.querySelector(".time-row").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-minutes]");
+    const button = event.target.closest(".time-btn");
     if (!button) return;
-    state.minutes = Number(button.dataset.minutes);
     state.locks = {};
+    if (button.dataset.format === "custom") {
+      state.formatMode = "custom";
+      state.minutes = state.custom.minutes;
+    } else {
+      state.formatMode = "preset";
+      state.minutes = Number(button.dataset.minutes);
+    }
+    persistCustom();
+    renderFormat();
+    rebuild();
+  });
+  document.querySelector("#custom-editor").addEventListener("change", (event) => {
+    if (event.target.id === "custom-minutes") {
+      const minutes = Number(event.target.value);
+      if (![30, 45, 60].includes(minutes)) return;
+      state.custom.minutes = minutes;
+      state.minutes = minutes;
+      persistCustom();
+      renderFormat();
+      rebuild();
+      return;
+    }
+    if (event.target.id === "custom-count") {
+      const count = Number(event.target.value);
+      if (!Number.isInteger(count) || count < 1 || count > MAX_CUSTOM_SONGS) {
+        event.target.value = String(state.custom.roles.length);
+        return;
+      }
+      state.custom.roles = resizeRoles(state.custom.roles, count);
+      state.locks = {};
+      persistCustom();
+      renderFormat();
+      rebuild();
+      return;
+    }
+    if (event.target.matches("[data-custom-index]") && event.target.tagName === "SELECT") {
+      const index = Number(event.target.dataset.customIndex);
+      if (!customRoleLabel(event.target.value)) return;
+      const roles = state.custom.roles.slice();
+      roles[index] = event.target.value;
+      state.custom.roles = roles;
+      state.locks = {};
+      persistCustom();
+      rebuild();
+    }
+  });
+  document.querySelector("#custom-editor").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-custom-move]");
+    if (!button || button.disabled) return;
+    const index = Number(button.dataset.customIndex);
+    const delta = Number(button.dataset.customMove);
+    state.custom.roles = moveRole(state.custom.roles, index, delta);
+    state.locks = {};
+    persistCustom();
     renderFormat();
     rebuild();
   });

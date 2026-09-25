@@ -73,7 +73,7 @@ See [`docs/receipts.md`](docs/receipts.md). Never commit real receipt images or 
 
 ## BodyCombat program builder
 
-Builds a 30, 45, or 60 minute BodyCombat class from tracks listed on [ボディコンバットナビ](https://www.fhstr.net/archives/34). Ratings and durations start as placeholders and can be edited in the browser.
+Builds a 30, 45, or 60 minute BodyCombat class, or one custom track order, from tracks listed on [ボディコンバットナビ](https://www.fhstr.net/archives/34). Ratings and durations start as placeholders and can be edited in the browser.
 
 ```bash
 npm install

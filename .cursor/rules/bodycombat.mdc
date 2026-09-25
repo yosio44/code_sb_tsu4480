@@ -34,6 +34,7 @@ globs:
   track 1 can stand in for 1A+1B. Track 5 may be one song or 5A then 5B.
 - 45 minutes: tracks 1–7 in order, then exactly one of track 8, 9, or 10.
 - 30 minutes: warmup, track 2, track 3, track 7, then track 9 or 10 (5–6 songs).
+- One custom format, shown beside 30/45/60. The user sets the time (30, 45, or 60), the ordered track roles, and the song count. Save it in localStorage (`customFormat.js`) and build that order inside the chosen time.
 
 ## Testing
 

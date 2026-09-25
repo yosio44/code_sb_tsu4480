@@ -12,7 +12,7 @@
         <p class="eyebrow">Les Mills BodyCombat</p>
         <h1>時間で組むボディコンバット</h1>
         <p class="lede">
-          30分・45分・60分の決まった曲順に合わせて、過去リリースの曲から時間内に収まるプログラムを作ります。評価（1〜5）と曲の長さは仮の値なので、あとから自分の感覚で直せます。
+          30分・45分・60分の決まった曲順、またはカスタムで決めた曲順に合わせて、過去リリースの曲から時間内に収まるプログラムを作ります。評価（1〜5）と曲の長さは仮の値なので、あとから自分の感覚で直せます。
         </p>
       </header>
 
@@ -21,8 +21,27 @@
           <button type="button" class="time-btn" data-minutes="30">30分</button>
           <button type="button" class="time-btn is-active" data-minutes="45">45分</button>
           <button type="button" class="time-btn" data-minutes="60">60分</button>
+          <button type="button" class="time-btn" data-format="custom">カスタム</button>
         </div>
         <p id="format-detail" class="format-detail"></p>
+        <div id="custom-editor" class="custom-editor" hidden>
+          <div class="controls">
+            <label>
+              時間
+              <select id="custom-minutes">
+                <option value="30">30分</option>
+                <option value="45">45分</option>
+                <option value="60">60分</option>
+              </select>
+            </label>
+            <label>
+              曲数
+              <input id="custom-count" type="number" min="1" max="16" step="1" inputmode="numeric" />
+            </label>
+          </div>
+          <p class="hint">上からこの順番で、選んだ種類の曲を1曲ずつ入れます。同じ種類を重ねることもできます。</p>
+          <ol id="custom-slots" class="custom-slots"></ol>
+        </div>
 
         <div class="controls">
           <label>
