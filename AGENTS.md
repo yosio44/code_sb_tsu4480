@@ -95,13 +95,13 @@ A separate **browser tool** that batch-loads receipt images, runs Google Cloud D
 A separate **browser tool** that assembles a Les Mills BodyCombat class for 30, 45, or 60 minutes from tracks published on ボディコンバットナビ (https://www.fhstr.net/archives/34 and the BC release pages linked from it). The catalog is stored in the app. It does not give training advice.
 
 - Browser entry: `bodycombat.html` → `src/bodycombat/bodycombatApp.js` (run via `npm run bodycombat`, port **1237**)
-- Core modules: `src/bodycombat/catalog.js` (embedded track list), `buildProgram.js` (time-fit class builder), `roles.js`, `metaStore.js` (rating and duration edits in localStorage)
+- Core modules: `src/bodycombat/catalog.js` (embedded track list), `buildProgram.js` (time-fit class builder), `roles.js`, `customFormat.js` (one saved custom order), `metaStore.js` (rating and duration edits in localStorage)
 - Human docs: `docs/bodycombat.md`
 - Agent rules: `.cursor/rules/bodycombat.mdc`
 - Tests: `test/bodycombat/bodycombat.test.js` (`npm test`)
 
 ### Scope limits
 
-- Build a class that follows the fixed 30/45/60 track order and fits the selected duration
+- Build a class that follows the fixed 30/45/60 track order, or the one saved custom order, and fits the selected duration minus an optional grace period (late start, a break, or an early finish)
 - Ratings shipped with the catalog are placeholders (1–5). Durations are estimates until the user edits them
 - Do not modify `src/index3.js`, `src/news/**`, `src/kakeibo/**`, or `src/receipts/**` for this tool unless explicitly requested

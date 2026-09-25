@@ -1,4 +1,12 @@
 import { FORMATS, roleLabel } from "./roles.js";
+import {
+  coversRoles,
+  customRoleLabel,
+  describeCustom,
+  normalizeRoleList,
+  roleIdFromSlot,
+  tracksForRole,
+} from "./customFormat.js";
 
 const BEAM_WIDTH = 32;
 const CHOICE_LIMIT = 16;
@@ -8,6 +16,21 @@ export function formatDuration(sec) {
   const m = Math.floor(s / 60);
   const r = s % 60;
   return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+export const MAX_BUFFER_MIN = 15;
+
+export function clampBufferMin(minutes, bufferMin) {
+  const classMin = Number(minutes);
+  const max = Math.min(MAX_BUFFER_MIN, Number.isFinite(classMin) ? Math.max(0, classMin - 1) : MAX_BUFFER_MIN);
+  const requested = Math.round(Number(bufferMin));
+  if (!Number.isFinite(requested) || requested <= 0) return 0;
+  return Math.min(max, requested);
+}
+
+function songBudget(minutes, bufferMin) {
+  const buffer = clampBufferMin(minutes, bufferMin);
+  return { bufferMin: buffer, targetSec: (minutes - buffer) * 60 };
 }
 
 export function parseDuration(text) {
@@ -101,6 +124,14 @@ function ranked(list, rng, limit = CHOICE_LIMIT) {
   return out.slice(0, limit);
 }
 
+function customTemplate(roles) {
+  return roles.map((roleId, index) => ({
+    key: `${index}:${roleId}`,
+    kind: "role",
+    roleId,
+  }));
+}
+
 function templateFor(minutes) {
   const head = [
     { key: "1A", kind: "warmupA" },
@@ -186,6 +217,9 @@ function choiceList(slot, pool, rng) {
     const all = slot.tracks.flatMap((trackNum) => songsForNumber(pool, trackNum));
     return ranked(all, rng).map((track) => [track]);
   }
+  if (slot.kind === "role") {
+    return ranked(tracksForRole(pool, slot.roleId), rng).map((track) => [track]);
+  }
   return ranked(songsForNumber(pool, slot.track), rng).map((track) => [track]);
 }
 
@@ -197,6 +231,10 @@ function minimumDuration(slot, pool) {
   }
   if (slot.kind === "warmupB") {
     const options = pool.filter((track) => track.role === "1B");
+    return options.length ? Math.min(...options.map((track) => track.durationSec)) : 0;
+  }
+  if (slot.kind === "role") {
+    const options = tracksForRole(pool, slot.roleId);
     return options.length ? Math.min(...options.map((track) => track.durationSec)) : 0;
   }
   if (slot.kind === "power2") {
@@ -239,6 +277,10 @@ function findById(tracks, id) {
 
 function lockedChoices(slot, locks, tracks) {
   if (!locks) return null;
+  if (slot.kind === "role") {
+    const song = findById(tracks, locks[slot.key]);
+    return song ? [[song]] : null;
+  }
   if (slot.kind === "power2") {
     const full = findById(tracks, locks["5"]);
     const a = findById(tracks, locks["5A"]);
@@ -304,12 +346,46 @@ function betterState(a, b) {
   return compareKeys(stateKey(a), stateKey(b)) > 0;
 }
 
+function slotName(slot) {
+  if (slot.kind === "role") return customRoleLabel(slot.roleId);
+  return slot.key;
+}
+
+function formatFor(minutes, roles) {
+  if (!roles) return FORMATS[minutes];
+  return {
+    minutes,
+    title: "カスタム",
+    detail: describeCustom({ minutes, roles }),
+  };
+}
+
+function emptyCustom(minutes, seed, bufferMin) {
+  const budget = songBudget(minutes, bufferMin);
+  return {
+    minutes,
+    bufferMin: budget.bufferMin,
+    targetSec: budget.targetSec,
+    durationSec: 0,
+    fits: false,
+    songs: [],
+    missingSlots: [],
+    ratingSum: 0,
+    seed,
+    release: null,
+    format: formatFor(minutes, []),
+  };
+}
+
 function buildOne(tracks, options) {
   const minutes = options.minutes;
-  const target = minutes * 60;
+  const budget = songBudget(minutes, options.bufferMin);
+  const target = budget.targetSec;
   const rng = mulberry32(options.seed >>> 0);
   const pool = tracks.filter((track) => eligible(track, options));
-  const slots = templateFor(minutes);
+  const roles = options.customRoles;
+  const slots = roles ? customTemplate(roles) : templateFor(minutes);
+  const format = formatFor(minutes, roles);
 
   let beam = [
     {
@@ -347,7 +423,7 @@ function buildOne(tracks, options) {
         if (slot.optional) {
           next.push(state);
         } else {
-          next.push({ ...state, missing: state.missing.concat(slot.key) });
+          next.push({ ...state, missing: state.missing.concat(slotName(slot)) });
         }
         continue;
       }
@@ -375,12 +451,13 @@ function buildOne(tracks, options) {
     songs: [],
     duration: 0,
     ratingSum: 0,
-    missing: slots.map((slot) => slot.key),
+    missing: slots.map((slot) => slotName(slot)),
   };
   const durationSec = best.duration || 0;
   const missingSlots = best.missing || [];
   return {
     minutes,
+    bufferMin: budget.bufferMin,
     targetSec: target,
     durationSec,
     fits: durationSec <= target && missingSlots.length === 0 && best.songs.length > 0,
@@ -389,7 +466,7 @@ function buildOne(tracks, options) {
     ratingSum: best.ratingSum || 0,
     seed: options.seed >>> 0,
     release: options.release || null,
-    format: FORMATS[minutes],
+    format,
   };
 }
 
@@ -399,15 +476,21 @@ export function buildProgram(tracks, options = {}) {
     throw new Error("minutes must be 30, 45, or 60");
   }
   const seed = Number.isFinite(Number(options.seed)) ? Number(options.seed) : 1;
+  const useCustom = Array.isArray(options.customRoles);
+  const customRoles = useCustom ? normalizeRoleList(options.customRoles) : null;
+  const budget = songBudget(minutes, options.bufferMin);
+  if (useCustom && !customRoles.length) return emptyCustom(minutes, seed, budget.bufferMin);
   const normalized = {
     minutes,
     seed,
+    bufferMin: budget.bufferMin,
     minRating: options.minRating ?? 1,
     includeBonus: Boolean(options.includeBonus),
     releaseFrom: options.releaseFrom ?? null,
     releaseTo: options.releaseTo ?? null,
     release: options.release || null,
     locks: options.locks || null,
+    customRoles,
   };
   if (options.sameRelease === "auto") {
     const releases = listReleases(
@@ -422,7 +505,8 @@ export function buildProgram(tracks, options = {}) {
     return (
       best || {
         minutes,
-        targetSec: minutes * 60,
+        bufferMin: budget.bufferMin,
+        targetSec: budget.targetSec,
         durationSec: 0,
         fits: false,
         songs: [],
@@ -430,7 +514,7 @@ export function buildProgram(tracks, options = {}) {
         ratingSum: 0,
         seed,
         release: null,
-        format: FORMATS[minutes],
+        format: formatFor(minutes, customRoles),
       }
     );
   }
@@ -442,6 +526,7 @@ export function buildProgram(tracks, options = {}) {
 
 function releaseCanAttempt(tracks, release, minutes, options) {
   const songs = tracks.filter((track) => track.release === release && eligible(track, { ...options, release }));
+  if (options.customRoles) return coversRoles(songs, options.customRoles);
   const nums = new Set(songs.map((track) => track.trackNum));
   const required = minutes === 30 ? [1, 2, 3, 7] : [1, 2, 3, 4, 5, 6, 7];
   if (!required.every((num) => nums.has(num))) return false;
@@ -486,6 +571,8 @@ export function candidatesForSlot(tracks, slot, options = {}) {
       release: options.release || null,
     })
   );
+  const roleId = roleIdFromSlot(slot);
+  if (roleId) return tracksForRole(pool, roleId);
   if (slot === "1" || slot === "1A") {
     return pool.filter((track) => track.role === "1A" || (track.trackNum === 1 && track.part === ""));
   }
@@ -499,7 +586,9 @@ export function candidatesForSlot(tracks, slot, options = {}) {
 }
 
 export function programToText(result) {
-  const header = `${result.minutes}分プログラム（合計 ${formatDuration(result.durationSec)} / ${result.minutes}:00）`;
+  const name = result.format?.title === "カスタム" ? "カスタム " : "";
+  const grace = result.bufferMin ? `、猶予${result.bufferMin}分` : "";
+  const header = `${name}${result.minutes}分プログラム（合計 ${formatDuration(result.durationSec)} / ${formatDuration(result.targetSec)}${grace}）`;
   const lines = result.songs.map((song, index) => {
     const artist = song.artist ? ` / ${song.artist}` : "";
     return `${index + 1}. ${song.releaseLabel} ${roleLabel(song.role)} ${song.title}${artist} ${formatDuration(song.durationSec)} ★${song.rating}`;
