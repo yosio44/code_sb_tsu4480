@@ -6,6 +6,7 @@ import { applyMeta, loadMeta, saveMeta, META_STORAGE_KEY } from "../../src/bodyc
 import {
   buildProgram,
   candidatesForSlot,
+  clampBufferMin,
   formatDuration,
   parseDuration,
   programToText,
@@ -178,6 +179,33 @@ test("duration text and program export", () => {
 
 test("invalid class length is rejected", () => {
   assert.throws(() => buildProgram(tracks, { minutes: 20 }), /30, 45, or 60/);
+});
+
+test("grace time shortens the song budget and keeps the class order", () => {
+  assert.equal(clampBufferMin(60, 5), 5);
+  assert.equal(clampBufferMin(60, 0), 0);
+  assert.equal(clampBufferMin(30, 40), 15);
+  assert.equal(clampBufferMin(60, -2), 0);
+
+  const full = buildProgram(tracks, { minutes: 60, seed: 1, bufferMin: 5 });
+  assert.equal(full.minutes, 60);
+  assert.equal(full.bufferMin, 5);
+  assert.equal(full.targetSec, 55 * 60);
+  assert.equal(full.fits, true);
+  assert.ok(full.durationSec <= full.targetSec);
+  const nums = new Set(full.songs.map((song) => song.trackNum));
+  for (let num = 1; num <= 10; num += 1) assert.equal(nums.has(num), true);
+  assert.match(programToText(full), /60分プログラム（合計 .+ \/ 55:00、猶予5分）/);
+
+  const plain = buildProgram(tracks, { minutes: 60, seed: 1 });
+  assert.equal(plain.bufferMin, 0);
+  assert.equal(plain.targetSec, 60 * 60);
+  assert.doesNotMatch(programToText(plain), /猶予/);
+
+  const short = buildProgram(tracks, { minutes: 30, seed: 1, bufferMin: 5 });
+  assert.equal(short.targetSec, 25 * 60);
+  assert.ok(short.durationSec <= short.targetSec);
+  assert.equal(short.fits, true);
 });
 
 test("a custom order keeps the chosen roles, count, and time", () => {

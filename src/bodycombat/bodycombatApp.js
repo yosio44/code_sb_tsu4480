@@ -14,12 +14,15 @@ import {
 import {
   buildProgram,
   candidatesForSlot,
+  clampBufferMin,
   formatDuration,
   listReleases,
   parseDuration,
   programToText,
   replaceSong,
 } from "./buildProgram.js";
+
+const BUFFER_STORAGE_KEY = "bodycombat:buffer-min:v1";
 
 const savedCustom = loadCustomFormat();
 
@@ -30,6 +33,7 @@ const state = {
   seed: 1,
   minRating: 1,
   includeBonus: false,
+  bufferMin: loadBufferMin(),
   releaseMode: "mix",
   releaseId: "",
   releaseFrom: null,
@@ -66,6 +70,7 @@ function buildOptions() {
     seed: state.seed,
     minRating: state.minRating,
     includeBonus: state.includeBonus,
+    bufferMin: state.bufferMin,
     releaseFrom: state.releaseFrom,
     releaseTo: state.releaseTo,
     sameRelease,
@@ -112,6 +117,36 @@ function starsHtml(id, rating, custom) {
   return `<div class="stars" role="group" aria-label="5段階評価">${buttons}${
     custom ? "" : '<span class="badge">仮</span>'
   }</div>`;
+}
+
+function classMinutes() {
+  return state.formatMode === "custom" ? state.custom.minutes : state.minutes;
+}
+
+function loadBufferMin() {
+  try {
+    return clampBufferMin(60, localStorage.getItem(BUFFER_STORAGE_KEY));
+  } catch {
+    return 0;
+  }
+}
+
+function persistBuffer() {
+  try {
+    localStorage.setItem(BUFFER_STORAGE_KEY, String(state.bufferMin));
+  } catch {
+    // The class can still be built when storage is unavailable.
+  }
+}
+
+function renderBuffer() {
+  const input = document.querySelector("#buffer-min");
+  if (input && document.activeElement !== input) input.value = String(state.bufferMin);
+  const note = document.querySelector("#buffer-note");
+  if (!note) return;
+  const classMin = classMinutes();
+  const songMin = classMin - state.bufferMin;
+  note.textContent = `開始の遅れ、途中の休憩、早めの終了に使う時間です。${classMin}分クラスの曲は${songMin}分までです。`;
 }
 
 function persistCustom() {
@@ -161,6 +196,7 @@ function renderFormat() {
     : FORMATS[state.minutes].detail;
   document.querySelector("#release-pick-label").hidden = state.releaseMode !== "one";
   renderCustomEditor();
+  renderBuffer();
 }
 
 function renderProgram() {
@@ -173,7 +209,8 @@ function renderProgram() {
   title.textContent = program.format.title;
   const over = program.durationSec > program.targetSec;
   total.className = `total ${program.fits ? "is-ok" : over ? "is-over" : ""}`;
-  total.textContent = `合計 ${formatDuration(program.durationSec)} / ${program.minutes}:00${
+  const grace = program.bufferMin ? `（${program.minutes}分クラス、猶予${program.bufferMin}分）` : "";
+  total.textContent = `合計 ${formatDuration(program.durationSec)} / ${formatDuration(program.targetSec)}${grace}${
     program.fits ? "" : "（時間内に収まりきっていません）"
   }`;
   const ratio = program.targetSec ? Math.min(100, (program.durationSec / program.targetSec) * 100) : 0;
@@ -386,6 +423,21 @@ function bind() {
     state.locks = {};
     persistCustom();
     renderFormat();
+    rebuild();
+  });
+  document.querySelector("#buffer-min").addEventListener("input", (event) => {
+    const raw = String(event.target.value).trim();
+    if (!/^\d+$/.test(raw)) return;
+    state.bufferMin = clampBufferMin(classMinutes(), raw);
+    persistBuffer();
+    renderBuffer();
+    rebuild();
+  });
+  document.querySelector("#buffer-min").addEventListener("change", (event) => {
+    state.bufferMin = clampBufferMin(classMinutes(), event.target.value);
+    event.target.value = String(state.bufferMin);
+    persistBuffer();
+    renderBuffer();
     rebuild();
   });
   document.querySelector("#min-rating").addEventListener("change", (event) => {

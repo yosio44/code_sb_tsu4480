@@ -18,6 +18,21 @@ export function formatDuration(sec) {
   return `${m}:${String(r).padStart(2, "0")}`;
 }
 
+export const MAX_BUFFER_MIN = 15;
+
+export function clampBufferMin(minutes, bufferMin) {
+  const classMin = Number(minutes);
+  const max = Math.min(MAX_BUFFER_MIN, Number.isFinite(classMin) ? Math.max(0, classMin - 1) : MAX_BUFFER_MIN);
+  const requested = Math.round(Number(bufferMin));
+  if (!Number.isFinite(requested) || requested <= 0) return 0;
+  return Math.min(max, requested);
+}
+
+function songBudget(minutes, bufferMin) {
+  const buffer = clampBufferMin(minutes, bufferMin);
+  return { bufferMin: buffer, targetSec: (minutes - buffer) * 60 };
+}
+
 export function parseDuration(text) {
   const raw = String(text ?? "").trim();
   const clock = raw.match(/^(\d+):(\d{1,2})$/);
@@ -345,10 +360,12 @@ function formatFor(minutes, roles) {
   };
 }
 
-function emptyCustom(minutes, seed) {
+function emptyCustom(minutes, seed, bufferMin) {
+  const budget = songBudget(minutes, bufferMin);
   return {
     minutes,
-    targetSec: minutes * 60,
+    bufferMin: budget.bufferMin,
+    targetSec: budget.targetSec,
     durationSec: 0,
     fits: false,
     songs: [],
@@ -362,7 +379,8 @@ function emptyCustom(minutes, seed) {
 
 function buildOne(tracks, options) {
   const minutes = options.minutes;
-  const target = minutes * 60;
+  const budget = songBudget(minutes, options.bufferMin);
+  const target = budget.targetSec;
   const rng = mulberry32(options.seed >>> 0);
   const pool = tracks.filter((track) => eligible(track, options));
   const roles = options.customRoles;
@@ -439,6 +457,7 @@ function buildOne(tracks, options) {
   const missingSlots = best.missing || [];
   return {
     minutes,
+    bufferMin: budget.bufferMin,
     targetSec: target,
     durationSec,
     fits: durationSec <= target && missingSlots.length === 0 && best.songs.length > 0,
@@ -459,10 +478,12 @@ export function buildProgram(tracks, options = {}) {
   const seed = Number.isFinite(Number(options.seed)) ? Number(options.seed) : 1;
   const useCustom = Array.isArray(options.customRoles);
   const customRoles = useCustom ? normalizeRoleList(options.customRoles) : null;
-  if (useCustom && !customRoles.length) return emptyCustom(minutes, seed);
+  const budget = songBudget(minutes, options.bufferMin);
+  if (useCustom && !customRoles.length) return emptyCustom(minutes, seed, budget.bufferMin);
   const normalized = {
     minutes,
     seed,
+    bufferMin: budget.bufferMin,
     minRating: options.minRating ?? 1,
     includeBonus: Boolean(options.includeBonus),
     releaseFrom: options.releaseFrom ?? null,
@@ -484,7 +505,8 @@ export function buildProgram(tracks, options = {}) {
     return (
       best || {
         minutes,
-        targetSec: minutes * 60,
+        bufferMin: budget.bufferMin,
+        targetSec: budget.targetSec,
         durationSec: 0,
         fits: false,
         songs: [],
@@ -565,7 +587,8 @@ export function candidatesForSlot(tracks, slot, options = {}) {
 
 export function programToText(result) {
   const name = result.format?.title === "カスタム" ? "カスタム " : "";
-  const header = `${name}${result.minutes}分プログラム（合計 ${formatDuration(result.durationSec)} / ${result.minutes}:00）`;
+  const grace = result.bufferMin ? `、猶予${result.bufferMin}分` : "";
+  const header = `${name}${result.minutes}分プログラム（合計 ${formatDuration(result.durationSec)} / ${formatDuration(result.targetSec)}${grace}）`;
   const lines = result.songs.map((song, index) => {
     const artist = song.artist ? ` / ${song.artist}` : "";
     return `${index + 1}. ${song.releaseLabel} ${roleLabel(song.role)} ${song.title}${artist} ${formatDuration(song.durationSec)} ★${song.rating}`;

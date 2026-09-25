@@ -236,7 +236,7 @@ a { color: #ffd56a; }
 .custom-move { display: flex; gap: 0.35rem; }
 .custom-move button { min-height: 2.6rem; }
 .custom-move button:disabled { opacity: 0.35; cursor: default; }
-#custom-count { width: 5.5rem; min-width: 5.5rem; }
+#custom-count, #buffer-min { width: 5.5rem; min-width: 5.5rem; }
 
 @media (max-width: 720px) {
   .wrap { width: min(100% - 1rem, 1040px); }

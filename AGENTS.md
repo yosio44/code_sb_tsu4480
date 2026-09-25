@@ -102,6 +102,6 @@ A separate **browser tool** that assembles a Les Mills BodyCombat class for 30, 
 
 ### Scope limits
 
-- Build a class that follows the fixed 30/45/60 track order, or the one saved custom order, and fits the selected duration
+- Build a class that follows the fixed 30/45/60 track order, or the one saved custom order, and fits the selected duration minus an optional grace period (late start, a break, or an early finish)
 - Ratings shipped with the catalog are placeholders (1–5). Durations are estimates until the user edits them
 - Do not modify `src/index3.js`, `src/news/**`, `src/kakeibo/**`, or `src/receipts/**` for this tool unless explicitly requested

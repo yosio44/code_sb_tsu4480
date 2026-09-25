@@ -45,6 +45,10 @@
 
         <div class="controls">
           <label>
+            猶予（分）
+            <input id="buffer-min" type="number" min="0" max="15" step="1" inputmode="numeric" value="0" aria-describedby="buffer-note" />
+          </label>
+          <label>
             評価の下限
             <select id="min-rating">
               <option value="1">1以上（すべて）</option>
@@ -79,6 +83,7 @@
             ボーナス曲も候補に入れる
           </label>
         </div>
+        <p id="buffer-note" class="hint"></p>
         <div class="action-row">
           <button type="button" id="rebuild" class="primary">別の組み合わせを作る</button>
           <button type="button" id="clear-locks">曲の固定を解除</button>
